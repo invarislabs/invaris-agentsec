@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://invaris.dev/agentsec/trace.schema.json",
+  "title": "AgentSec trace",
+  "type": "object",
+  "required": ["schema_version", "scenario_id", "outcome", "usage", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1"},
+    "scenario_id": {"type": "string"},
+    "outcome": {"enum": ["completed", "limit_exceeded", "error"]},
+    "limit": {"type": ["string", "null"]},
+    "error": {"type": ["string", "null"]},
+    "duration_s": {"type": "number", "minimum": 0},
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "steps": {"type": "integer", "minimum": 0},
+        "tool_calls": {"type": "integer", "minimum": 0},
+        "prompt_tokens": {"type": "integer", "minimum": 0},
+        "completion_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "cost_usd": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "seq": {"type": "integer", "minimum": 0},
+          "type": {"enum": ["user_message", "assistant_message", "tool_call", "tool_result", "limit", "error"]},
+          "t_ms": {"type": "integer", "minimum": 0},
+          "content": {"type": "string"},
+          "tool_name": {"type": "string"},
+          "tool_call_id": {"type": "string"},
+          "arguments": {"type": "object"},
+          "meta": {"type": "object"}
+        }
+      }
+    }
+  }
+}

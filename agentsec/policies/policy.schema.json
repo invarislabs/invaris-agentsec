@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://invaris.dev/agentsec/policy.schema.json",
+  "title": "AgentSec policy (agentsec.yaml)",
+  "type": "object",
+  "required": ["agent"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"enum": ["1", 1]},
+    "agent": {
+      "type": "object",
+      "required": ["name", "endpoint"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "endpoint": {"type": "string", "pattern": "^https?://"},
+        "model": {"type": "string"},
+        "api_key_env": {"type": ["string", "null"]},
+        "headers": {"type": "object", "additionalProperties": {"type": "string"}},
+        "timeout_s": {"type": "number", "minimum": 0.1},
+        "declare_tools": {"type": "boolean"},
+        "retrieval_tools": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "pricing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "input_per_1k": {"type": "number", "minimum": 0},
+            "output_per_1k": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
+    "allowed_tools": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "forbidden_actions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "secrets": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_steps": {"type": "integer", "minimum": 1},
+        "max_tool_calls": {"type": "integer", "minimum": 1},
+        "max_repeated_calls": {"type": "integer", "minimum": 1},
+        "max_tokens": {"type": "integer", "minimum": 1},
+        "max_seconds": {"type": "number", "minimum": 0},
+        "max_cost_usd": {"type": "number", "minimum": 0}
+      }
+    },
+    "tests": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  }
+}
