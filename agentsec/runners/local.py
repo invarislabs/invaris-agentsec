@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from ..adapters import AdapterError, AgentAdapter
 from ..attacks import build_scenarios
-from ..attacks.base import Scenario, ScenarioContext
-from ..evaluators import Finding, evaluate_trace
-from ..policies import Policy
+from ..attacks.base import Scenario, ScenarioContext, ToolResponder
+from ..evaluators import Finding, JudgeEvaluator, evaluate_trace
+from ..policies import Policy, PolicyError
 from ..traces import Trace
 
 SANDBOX_OK = "OK (simulated by AgentSec sandbox; no real action was taken)"
@@ -72,89 +73,114 @@ def _is_scenario_tool(policy: Policy, name: str) -> bool:
 
 
 def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
-                 clock: Callable[[], float] = time.monotonic) -> Trace:
+                 clock: Callable[[], float] = time.monotonic, run_id: str = "") -> Trace:
+    """Run a scenario. Multi-session scenarios run each follow-up as a fresh
+    conversation, in the same simulated-user session unless the follow-up says otherwise.
+    Step and tool-call limits apply per conversation."""
     lim = policy.limits
     trace = Trace(scenario_id=scenario.id)
     start = clock()
+    usage = trace.usage
+    multi = bool(scenario.followups)
+    base_session = "agentsec-%s-%s" % (run_id or "local", scenario.id.replace("/", "-"))
 
     def now_ms() -> int:
         return int((clock() - start) * 1000)
 
-    tools = declared_tools(policy) if policy.agent.declare_tools else []
-    messages: List[Dict[str, Any]] = [{"role": "user", "content": scenario.user_message}]
-    trace.add("user_message", now_ms(), content=scenario.user_message)
-    usage = trace.usage
-    scenario_calls = 0
+    def add(type: str, phase: int, **kw: Any):
+        if multi:
+            kw["meta"] = dict(kw.get("meta") or {}, phase=phase)
+        return trace.add(type, now_ms(), **kw)
 
-    def stop(limit: str, detail: str) -> None:
+    def stop(limit: str, detail: str, phase: int) -> None:
         trace.outcome, trace.limit = "limit_exceeded", limit
-        trace.add("limit", now_ms(), content=detail, meta={"limit": limit})
+        add("limit", phase, content=detail, meta={"limit": limit})
 
-    while True:
-        if usage.steps >= lim.max_steps:
-            stop("max_steps", "agent still running after %d steps" % lim.max_steps)
-            break
-        if lim.max_seconds is not None and clock() - start > lim.max_seconds:
-            stop("max_seconds", "run exceeded %.1fs" % lim.max_seconds)
-            break
-        try:
-            reply = adapter.chat(messages, tools)
-        except AdapterError as exc:
-            trace.outcome, trace.error = "error", str(exc)
-            trace.add("error", now_ms(), content=str(exc))
-            break
-        usage.steps += 1
-        usage.prompt_tokens += reply.prompt_tokens
-        usage.completion_tokens += reply.completion_tokens
-        usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
-        if reply.cost_usd is not None:
-            usage.cost_usd = (usage.cost_usd or 0.0) + reply.cost_usd
-        elif policy.agent.pricing and (reply.prompt_tokens or reply.completion_tokens):
-            p = policy.agent.pricing
-            usage.cost_usd = (usage.cost_usd or 0.0) + (
-                reply.prompt_tokens / 1000 * p.input_per_1k
-                + reply.completion_tokens / 1000 * p.output_per_1k)
+    tools = declared_tools(policy) if policy.agent.declare_tools else []
+    conversations = [(scenario.user_message, scenario.responder, base_session)]
+    for i, f in enumerate(scenario.followups):
+        conversations.append((f.user_message, f.responder,
+                              base_session if f.same_session else base_session + "-other%d" % i))
 
-        trace.add("assistant_message", now_ms(), content=reply.content or "")
-        # Calls the agent executed itself and reported: record them as observed.
-        for ev in reply.executed:
-            usage.tool_calls += 1
-            trace.add("tool_call", now_ms(), tool_name=ev["name"], arguments=ev.get("arguments") or {},
-                      meta={"executed_by_agent": True})
-            if ev.get("result") is not None:
-                trace.add("tool_result", now_ms(), tool_name=ev["name"], content=str(ev["result"]),
-                          meta={"executed_by_agent": True})
-
-        if not reply.tool_calls:
-            break
-
-        messages.append({
-            "role": "assistant", "content": reply.content,
-            "tool_calls": [{"id": tc.id, "type": "function",
-                            "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}}
-                           for tc in reply.tool_calls],
-        })
-        over_budget = False
-        for tc in reply.tool_calls:
-            usage.tool_calls += 1
-            over = usage.tool_calls > lim.max_tool_calls
-            trace.add("tool_call", now_ms(), tool_name=tc.name, tool_call_id=tc.id,
-                      arguments=tc.arguments, meta={"over_budget": True} if over else {})
-            if over:
-                stop("max_tool_calls", "agent requested tool call #%d (budget %d)"
-                     % (usage.tool_calls, lim.max_tool_calls))
-                over_budget = True
+    scenario_calls = 0
+    for phase, (user_message, responder, session) in enumerate(conversations):
+        messages: List[Dict[str, Any]] = [{"role": "user", "content": user_message}]
+        add("user_message", phase, content=user_message)
+        steps = calls = 0
+        halted = False
+        while True:
+            if steps >= lim.max_steps:
+                stop("max_steps", "agent still running after %d steps" % lim.max_steps, phase)
+                halted = True
                 break
-            if scenario.responder and _is_scenario_tool(policy, tc.name):
-                result = scenario.responder(tc.name, tc.arguments, scenario_calls)
-                scenario_calls += 1
-            elif _is_scenario_tool(policy, tc.name):
-                result = BENIGN_DOC
-            else:
-                result = SANDBOX_OK
-            trace.add("tool_result", now_ms(), tool_name=tc.name, tool_call_id=tc.id, content=result)
-            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
-        if over_budget:
+            if lim.max_seconds is not None and clock() - start > lim.max_seconds:
+                stop("max_seconds", "run exceeded %.1fs" % lim.max_seconds, phase)
+                halted = True
+                break
+            try:
+                reply = adapter.chat(messages, tools, session=session)
+            except AdapterError as exc:
+                trace.outcome, trace.error = "error", str(exc)
+                add("error", phase, content=str(exc))
+                halted = True
+                break
+            steps += 1
+            usage.steps += 1
+            usage.prompt_tokens += reply.prompt_tokens
+            usage.completion_tokens += reply.completion_tokens
+            usage.total_tokens = usage.prompt_tokens + usage.completion_tokens
+            if reply.cost_usd is not None:
+                usage.cost_usd = (usage.cost_usd or 0.0) + reply.cost_usd
+            elif policy.agent.pricing and (reply.prompt_tokens or reply.completion_tokens):
+                p = policy.agent.pricing
+                usage.cost_usd = (usage.cost_usd or 0.0) + (
+                    reply.prompt_tokens / 1000 * p.input_per_1k
+                    + reply.completion_tokens / 1000 * p.output_per_1k)
+
+            add("assistant_message", phase, content=reply.content or "")
+            # Calls the agent executed itself and reported: record them as observed.
+            for ev in reply.executed:
+                usage.tool_calls += 1
+                add("tool_call", phase, tool_name=ev["name"], arguments=ev.get("arguments") or {},
+                    meta={"executed_by_agent": True})
+                if ev.get("result") is not None:
+                    add("tool_result", phase, tool_name=ev["name"], content=str(ev["result"]),
+                        meta={"executed_by_agent": True})
+
+            if not reply.tool_calls:
+                break
+
+            messages.append({
+                "role": "assistant", "content": reply.content,
+                "tool_calls": [{"id": tc.id, "type": "function",
+                                "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)}}
+                               for tc in reply.tool_calls],
+            })
+            over_budget = False
+            for tc in reply.tool_calls:
+                usage.tool_calls += 1
+                calls += 1
+                over = calls > lim.max_tool_calls
+                add("tool_call", phase, tool_name=tc.name, tool_call_id=tc.id, arguments=tc.arguments,
+                    meta={"over_budget": True} if over else {})
+                if over:
+                    stop("max_tool_calls", "agent requested tool call #%d (budget %d)"
+                         % (calls, lim.max_tool_calls), phase)
+                    over_budget = True
+                    break
+                if responder and _is_scenario_tool(policy, tc.name):
+                    result = responder(tc.name, tc.arguments, scenario_calls)
+                    scenario_calls += 1
+                elif _is_scenario_tool(policy, tc.name):
+                    result = BENIGN_DOC
+                else:
+                    result = SANDBOX_OK
+                add("tool_result", phase, tool_name=tc.name, tool_call_id=tc.id, content=result)
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+            if over_budget:
+                halted = True
+                break
+        if halted:
             break
 
     trace.duration_s = clock() - start
@@ -163,13 +189,26 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
 
 def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
               only: Optional[List[str]] = None,
-              progress: Optional[Callable[[Scenario], None]] = None) -> SuiteResult:
-    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only)
+              progress: Optional[Callable[[Scenario], None]] = None,
+              categories: Optional[List[str]] = None, judge: bool = False,
+              judge_adapter: Optional[AgentAdapter] = None) -> SuiteResult:
+    """Run the scenarios. With judge=True the policy's `judge:` model reviews scenarios the
+    deterministic evaluators passed (advisory, clearly labelled model-assisted)."""
+    evaluator: Optional[JudgeEvaluator] = None
+    if judge:
+        if policy.judge is None:
+            raise PolicyError("--judge needs a `judge:` section in the policy (endpoint, model, ...)")
+        evaluator = JudgeEvaluator(policy.judge, judge_adapter)
+    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories)
+    run_id = uuid.uuid4().hex[:8]  # isolates agent-side memory between runs
     results: List[ScenarioResult] = []
     for sc in scenarios:
         if progress:
             progress(sc)
-        trace = run_scenario(sc, policy, adapter)
-        findings = evaluate_trace(sc, trace, policy) if trace.outcome != "error" else []
+        trace = run_scenario(sc, policy, adapter, run_id=run_id)
+        findings = evaluate_trace(sc, trace, policy, evaluator) if trace.outcome != "error" else []
         results.append(ScenarioResult(sc, trace, findings))
+    if evaluator is not None and evaluator.errors:
+        warnings.append("judge: %d of %d judge calls failed or returned an unusable verdict"
+                        % (evaluator.errors, evaluator.calls))
     return SuiteResult(policy, seed, results, warnings)

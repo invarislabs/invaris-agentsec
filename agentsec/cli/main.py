@@ -9,8 +9,9 @@ from .. import __version__
 from ..adapters import HTTPAgentAdapter
 from ..evaluators import SEVERITIES, severity_rank
 from ..policies import PolicyError, load_policy, policy_json_schema
-from ..reports import render_terminal, write_json_report
-from ..runners import run_suite
+from ..reports import (FORMATS, annotations, append_step_summary, in_github_actions,
+                       render_markdown, render_terminal, write_reports)
+from ..runners import load_report, replay, run_suite
 from ..traces import trace_json_schema
 
 EXIT_OK, EXIT_FINDINGS, EXIT_ERROR = 0, 1, 2
@@ -49,6 +50,14 @@ tests:
 """
 
 
+def _parse_formats(text: str) -> List[str]:
+    formats = [f.strip() for f in text.split(",") if f.strip()]
+    bad = [f for f in formats if f not in FORMATS]
+    if bad or not formats:
+        raise PolicyError("--format must be a comma-separated list of: %s" % ", ".join(FORMATS))
+    return formats
+
+
 def _cmd_test(args: argparse.Namespace) -> int:
     policy = load_policy(args.policy)
     adapter = HTTPAgentAdapter(policy.agent)
@@ -56,9 +65,14 @@ def _cmd_test(args: argparse.Namespace) -> int:
     progress = None
     if args.verbose:
         progress = lambda sc: print("running %s" % sc.id, file=sys.stderr)
-    suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress)
-    path = write_json_report(suite, args.out)
-    print(render_terminal(suite, report_path=path, color=sys.stdout.isatty(), verbose=args.verbose))
+    formats = _parse_formats(args.format)
+    suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress, judge=args.judge)
+    report, paths = write_reports(suite, args.out, formats)
+    print(render_terminal(suite, report_path=paths, color=sys.stdout.isatty(), verbose=args.verbose))
+    if in_github_actions():
+        for line in annotations(report):
+            print(line)
+        append_step_summary(render_markdown(report))
 
     if suite.results and all(r.status == "error" for r in suite.results):
         print("\nEvery scenario errored; is the agent running at %s?" % policy.agent.endpoint,
@@ -69,6 +83,38 @@ def _cmd_test(args: argparse.Namespace) -> int:
         if any(severity_rank(f.severity) >= threshold for f in suite.findings):
             return EXIT_FINDINGS
     return EXIT_OK
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    report = load_report(args.report)
+    policy = load_policy(args.policy)
+    result = replay(report, policy, HTTPAgentAdapter(policy.agent),
+                    finding_ids=args.finding or None, scenario_ids=args.scenario or None,
+                    judge=args.judge)
+    if result.skipped_model_assisted:
+        print("note: skipped %d model-assisted finding(s); pass --judge to re-check them"
+              % result.skipped_model_assisted)
+    if not result.outcomes:
+        print("Nothing to replay: the report has no matching findings.")
+        return EXIT_OK
+    print("Replaying %d finding%s from %s (seed %d)" % (
+        len(result.outcomes), "" if len(result.outcomes) == 1 else "s", args.report, result.seed))
+    if result.policy_changed:
+        print("note: the policy file differs from the one used for the report")
+    label = {"reproduced": "REPRODUCED", "not_reproduced": "NOT REPRODUCED", "error": "ERROR"}
+    for o in result.outcomes:
+        print("%-15s %-8s %s  [%s]" % (label[o.status], o.severity, o.title, o.scenario_id))
+    for f in result.new_findings:
+        print("%-15s %-8s %s  [%s]" % ("NEW", f.severity, f.title, f.scenario_id))
+    print("\n%d reproduced, %d not reproduced, %d new, %d errored" % (
+        len(result.reproduced), sum(o.status == "not_reproduced" for o in result.outcomes),
+        len(result.new_findings), len(result.errors)))
+    if result.suite is not None:
+        _, paths = write_reports(result.suite, args.out, ["json"])
+        print("Report written to %s" % paths[0])
+    if result.errors:
+        return EXIT_ERROR
+    return EXIT_FINDINGS if (result.reproduced or result.new_findings) else EXIT_OK
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
@@ -96,12 +142,25 @@ def build_parser() -> argparse.ArgumentParser:
     t = sub.add_parser("test", help="run the adversarial suite against the agent in the policy")
     t.add_argument("--policy", "-p", default="agentsec.yaml")
     t.add_argument("--out", "-o", default=".agentsec", help="report directory (default .agentsec)")
+    t.add_argument("--format", "-f", default="json,html",
+                   help="report formats, comma-separated: json, html, markdown (default json,html)")
     t.add_argument("--seed", type=int, default=0, help="seed for canaries/markers; same seed = same scenarios")
     t.add_argument("--scenario", "-s", action="append", help="only run this category or scenario id (repeatable)")
     t.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low",
                    help="exit 1 if a finding at or above this severity exists (default low = any)")
+    t.add_argument("--judge", action="store_true",
+                   help="also run the model-assisted evaluators configured under `judge:` in the policy")
     t.add_argument("--verbose", "-v", action="store_true")
     t.set_defaults(func=_cmd_test)
+
+    r = sub.add_parser("replay", help="re-run findings from a report to see whether they still reproduce")
+    r.add_argument("report", help="report.json from an earlier run")
+    r.add_argument("--policy", "-p", default="agentsec.yaml")
+    r.add_argument("--out", "-o", default=".agentsec/replay", help="directory for the replay report")
+    r.add_argument("--finding", action="append", help="replay only this finding id (repeatable)")
+    r.add_argument("--scenario", "-s", action="append", help="replay only findings of this scenario id (repeatable)")
+    r.add_argument("--judge", action="store_true", help="enable the judge so model-assisted findings can be re-checked")
+    r.set_defaults(func=_cmd_replay)
 
     i = sub.add_parser("init", help="write a starter agentsec.yaml")
     i.add_argument("path", nargs="?", default="agentsec.yaml")

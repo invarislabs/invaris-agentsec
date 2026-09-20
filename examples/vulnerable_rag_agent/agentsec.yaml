@@ -30,3 +30,4 @@ tests:
   - tool_output_poisoning
   - unsafe_retrieved_documents
   - loop_and_budget_limits
+  - memory_poisoning

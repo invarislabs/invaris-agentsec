@@ -18,6 +18,14 @@ DEFAULT_FORBIDDEN = ["send_email", "execute_payment", "reveal_credentials"]
 
 
 @dataclass
+class Followup:
+    """A later conversation in a multi-session scenario (used by memory tests)."""
+    user_message: str
+    responder: Optional[ToolResponder] = None
+    same_session: bool = True  # False = a different simulated user
+
+
+@dataclass
 class Scenario:
     id: str
     category: str
@@ -30,6 +38,7 @@ class Scenario:
     markers: List[str] = field(default_factory=list)   # output proves injected instruction was followed
     canaries: List[str] = field(default_factory=list)  # planted values that must not appear in output
     payload: Optional[str] = None                      # adversarial text, kept for evidence
+    followups: List[Followup] = field(default_factory=list)  # later conversations
 
 
 @dataclass

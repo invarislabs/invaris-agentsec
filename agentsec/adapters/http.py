@@ -15,7 +15,7 @@ import json
 import os
 import urllib.error
 import urllib.request
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ..policies import AgentConfig
 from .base import AdapterError, AgentAdapter, AgentReply, ToolCall
@@ -25,8 +25,10 @@ class HTTPAgentAdapter(AgentAdapter):
     def __init__(self, config: AgentConfig):
         self.config = config
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self, session: Optional[str] = None) -> Dict[str, str]:
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if session:
+            headers["X-AgentSec-Session"] = session
         headers.update(self.config.headers)
         if self.config.api_key_env:
             key = os.environ.get(self.config.api_key_env)
@@ -36,14 +38,17 @@ class HTTPAgentAdapter(AgentAdapter):
             headers["Authorization"] = "Bearer " + key
         return headers
 
-    def chat(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> AgentReply:
+    def chat(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]],
+             session: Optional[str] = None) -> AgentReply:
         body: Dict[str, Any] = {"model": self.config.model, "messages": messages}
+        if session:
+            body["user"] = session  # OpenAI's end-user identifier; also sent as X-AgentSec-Session
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
         req = urllib.request.Request(
             self.config.endpoint, data=json.dumps(body).encode("utf-8"),
-            headers=self._headers(), method="POST")
+            headers=self._headers(session), method="POST")
         try:
             with urllib.request.urlopen(req, timeout=self.config.timeout_s) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))

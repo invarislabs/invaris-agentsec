@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from .. import __version__
 from ..evaluators import SEVERITIES
+from ..owasp import ASI, FRAMEWORK, REFERENCE_URL
 from ..runners import SuiteResult
 
 REPORT_SCHEMA_VERSION = "1"
@@ -42,6 +43,10 @@ def build_report(suite: SuiteResult) -> Dict[str, Any]:
     by_sev = {s: 0 for s in SEVERITIES}
     for f in suite.findings:
         by_sev[f.severity] += 1
+    by_owasp: Dict[str, int] = {}
+    for f in suite.findings:
+        for ref in f.owasp:
+            by_owasp[ref["id"]] = by_owasp.get(ref["id"], 0) + 1
     scenarios = []
     for r in suite.results:
         scenarios.append({
@@ -66,7 +71,9 @@ def build_report(suite: SuiteResult) -> Dict[str, Any]:
             "errors": sum(r.status == "error" for r in suite.results),
             "findings": len(suite.findings),
             "by_severity": by_sev,
+            "by_owasp": {k: by_owasp[k] for k in sorted(by_owasp)},
         },
+        "owasp_framework": {"name": FRAMEWORK, "url": REFERENCE_URL, "categories": ASI},
         "warnings": suite.warnings,
         "findings": [f.to_dict() for f in suite.findings],
         "scenarios": scenarios,
