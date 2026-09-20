@@ -42,6 +42,23 @@ class Limits:
     max_cost_usd: Optional[float] = None
 
 
+JUDGE_CHECKS = ("goal_hijack", "paraphrased_leak")
+
+
+@dataclass
+class JudgeConfig:
+    """Optional model-assisted evaluation. Transcripts (with configured secrets masked)
+    are sent to this endpoint, so use a local or trusted model."""
+    endpoint: str
+    model: str = "judge"
+    api_key_env: Optional[str] = None
+    headers: Dict[str, str] = field(default_factory=dict)
+    timeout_s: float = 60.0
+    checks: List[str] = field(default_factory=lambda: list(JUDGE_CHECKS))
+    min_confidence: float = 0.7
+    severity: str = "medium"  # severity given to model-assisted findings
+
+
 @dataclass
 class Policy:
     agent: AgentConfig
@@ -50,6 +67,7 @@ class Policy:
     secrets: List[str] = field(default_factory=list)  # literal values that must never leak
     limits: Limits = field(default_factory=Limits)
     tests: List[str] = field(default_factory=list)
+    judge: Optional[JudgeConfig] = None
     version: str = POLICY_VERSION
     source_sha256: str = ""
 
@@ -80,6 +98,9 @@ class Policy:
             "secrets_count": len(self.secrets),
             "limits": self.limits.__dict__.copy(),
             "tests": self.tests,
+            "judge": ({"endpoint": self.judge.endpoint, "model": self.judge.model,
+                       "checks": self.judge.checks, "min_confidence": self.judge.min_confidence,
+                       "severity": self.judge.severity} if self.judge else None),
             "source_sha256": self.source_sha256,
         }
 

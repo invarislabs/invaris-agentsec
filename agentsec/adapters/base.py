@@ -28,8 +28,12 @@ class AgentReply:
 
 
 class AgentAdapter:
-    """Connects AgentSec to an agent. Implementations must be stateless per call:
+    """Connects AgentSec to an agent. Implementations must not keep conversation state:
     the runner resends the full conversation on every step."""
 
-    def chat(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> AgentReply:
+    def chat(self, messages: List[Dict[str, Any]], tools: List[Dict[str, Any]],
+             session: Optional[str] = None) -> AgentReply:
+        """`session` identifies one simulated user. It stays the same across the
+        conversations of a multi-session scenario (memory tests) and is unique per run.
+        Agents without memory can ignore it."""
         raise NotImplementedError

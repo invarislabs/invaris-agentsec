@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 
 from .loader import load_policy, parse_policy
-from .schema import POLICY_VERSION, AgentConfig, Limits, Policy, PolicyError, Pricing
+from .schema import JUDGE_CHECKS, POLICY_VERSION, AgentConfig, JudgeConfig, Limits, Policy, PolicyError, Pricing
 
-__all__ = ["POLICY_VERSION", "AgentConfig", "Limits", "Policy", "PolicyError", "Pricing",
+__all__ = ["JUDGE_CHECKS", "JudgeConfig", "POLICY_VERSION", "AgentConfig", "Limits", "Policy", "PolicyError", "Pricing",
            "load_policy", "parse_policy", "policy_json_schema"]
 
 

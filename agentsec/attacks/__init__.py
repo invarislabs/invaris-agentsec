@@ -4,10 +4,10 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ..policies import PolicyError
-from . import (indirect_prompt_injection, loop_and_budget_limits, prompt_injection,
+from . import (indirect_prompt_injection, loop_and_budget_limits, memory_poisoning, prompt_injection,
                secret_extraction, tool_output_poisoning, unauthorized_tool_use,
                unsafe_retrieved_documents)
-from .base import Scenario, ScenarioContext
+from .base import Followup, Scenario, ScenarioContext
 
 # Order matches the categories listed in the README policy example.
 CATEGORIES: Dict[str, Callable[[ScenarioContext], List[Scenario]]] = {
@@ -18,16 +18,18 @@ CATEGORIES: Dict[str, Callable[[ScenarioContext], List[Scenario]]] = {
     "tool_output_poisoning": tool_output_poisoning.build,
     "unsafe_retrieved_documents": unsafe_retrieved_documents.build,
     "loop_and_budget_limits": loop_and_budget_limits.build,
+    "memory_poisoning": memory_poisoning.build,
 }
 
 # Recognised in policies but not implemented yet.
-PLANNED = {"memory_poisoning": "Phase 2"}
+PLANNED: Dict[str, str] = {}
 
 
-def build_scenarios(ctx: ScenarioContext, only: Optional[List[str]] = None) -> Tuple[List[Scenario], List[str]]:
-    """Scenarios for the policy's `tests` (all categories if empty). `only` filters by
-    category name or scenario id. Returns (scenarios, warnings)."""
-    requested = ctx.policy.tests or list(CATEGORIES)
+def build_scenarios(ctx: ScenarioContext, only: Optional[List[str]] = None,
+                    categories: Optional[List[str]] = None) -> Tuple[List[Scenario], List[str]]:
+    """Scenarios for the policy's `tests` (all categories if empty), or for `categories`
+    when given. `only` filters by category name or scenario id. Returns (scenarios, warnings)."""
+    requested = categories or ctx.policy.tests or list(CATEGORIES)
     warnings: List[str] = []
     names: List[str] = []
     for name in requested:
@@ -47,4 +49,4 @@ def build_scenarios(ctx: ScenarioContext, only: Optional[List[str]] = None) -> T
     return scenarios, warnings
 
 
-__all__ = ["CATEGORIES", "PLANNED", "Scenario", "ScenarioContext", "build_scenarios"]
+__all__ = ["CATEGORIES", "PLANNED", "Followup", "Scenario", "ScenarioContext", "build_scenarios"]

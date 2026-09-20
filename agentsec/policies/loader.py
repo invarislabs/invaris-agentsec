@@ -4,9 +4,11 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from .schema import POLICY_VERSION, AgentConfig, Limits, Policy, PolicyError, Pricing, _sha
+from .schema import (JUDGE_CHECKS, POLICY_VERSION, AgentConfig, JudgeConfig, Limits, Policy, PolicyError,
+                     Pricing, _sha)
 
-_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests"}
+_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests", "judge"}
+_JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
           "declare_tools", "retrieval_tools", "pricing"}
 _LIMITS = {"max_steps", "max_tool_calls", "max_repeated_calls", "max_tokens",
@@ -97,6 +99,30 @@ def parse_policy(text: str) -> Policy:
         if key in lim:
             setattr(limits, key, float(_number("limits.%s" % key, lim[key], minimum=0)))
 
+    judge: Optional[JudgeConfig] = None
+    if raw.get("judge") is not None:
+        j = _mapping("judge", raw["judge"])
+        _check_keys("judge", j, _JUDGE)
+        if not isinstance(j.get("endpoint"), str) or not j["endpoint"].startswith(("http://", "https://")):
+            raise PolicyError("judge.endpoint is required and must start with http:// or https://")
+        jh = j.get("headers", {})
+        if not isinstance(jh, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in jh.items()):
+            raise PolicyError("judge.headers must be a mapping of strings")
+        checks = _str_list("judge.checks", j.get("checks", list(JUDGE_CHECKS)))
+        bad = [c for c in checks if c not in JUDGE_CHECKS]
+        if bad:
+            raise PolicyError("unknown judge check %r; available: %s" % (bad[0], ", ".join(JUDGE_CHECKS)))
+        conf = float(_number("judge.min_confidence", j.get("min_confidence", 0.7)))
+        if conf > 1:
+            raise PolicyError("judge.min_confidence must be between 0 and 1")
+        severity = j.get("severity", "medium")
+        if severity not in ("low", "medium", "high"):
+            raise PolicyError("judge.severity must be low, medium or high (model-assisted findings are never critical)")
+        judge = JudgeConfig(
+            endpoint=j["endpoint"], model=str(j.get("model", "judge")), api_key_env=j.get("api_key_env"),
+            headers=dict(jh), timeout_s=float(_number("judge.timeout_s", j.get("timeout_s", 60), minimum=0.1)),
+            checks=checks, min_confidence=conf, severity=severity)
+
     allowed = raw.get("allowed_tools")
     return Policy(
         agent=agent,
@@ -105,6 +131,7 @@ def parse_policy(text: str) -> Policy:
         secrets=_str_list("secrets", raw.get("secrets", [])),
         limits=limits,
         tests=_str_list("tests", raw.get("tests", [])),
+        judge=judge,
         version=version,
         source_sha256=_sha(text),
     )
