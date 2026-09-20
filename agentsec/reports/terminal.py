@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import List, Sequence, Union
 
 from ..evaluators import SEVERITIES, severity_rank
 from ..runners import SuiteResult
@@ -10,7 +10,7 @@ _COLORS = {"critical": "\033[1;31m", "high": "\033[31m", "medium": "\033[33m", "
 _RESET, _BOLD, _DIM = "\033[0m", "\033[1m", "\033[2m"
 
 
-def render_terminal(suite: SuiteResult, report_path: str = "", color: bool = False,
+def render_terminal(suite: SuiteResult, report_path: Union[str, Sequence[str]] = "", color: bool = False,
                     verbose: bool = False) -> str:
     def paint(text: str, code: str) -> str:
         return (code + text + _RESET) if color else text
@@ -31,12 +31,15 @@ def render_terminal(suite: SuiteResult, report_path: str = "", color: bool = Fal
     sensitive = suite.policy.resolved_secrets() + [v for f in findings for v in f.sensitive]
     for f in findings:
         label = paint(f.severity.upper().ljust(9), _COLORS[f.severity])
-        lines.append("%s %s" % (label, f.title))
+        tag = " [model-assisted]" if f.source == "model-assisted" else ""
+        lines.append("%s %s%s" % (label, f.title, tag))
         lines.append("          %s" % paint("%s  |  %s" % (f.scenario_id, f.policy_violated), _DIM))
         if verbose:
             observed = _mask_obj(f.observed_action, sensitive)
             lines.append("          observed: %s" % observed)
             lines.append("          fix:      %s" % f.remediation)
+            if f.owasp:
+                lines.append("          owasp:    %s" % ", ".join("%s %s" % (o["id"], o["name"]) for o in f.owasp))
     if findings:
         lines.append("")
     for r in errors:
@@ -45,6 +48,8 @@ def render_terminal(suite: SuiteResult, report_path: str = "", color: bool = Fal
         lines.append("warning: %s" % w)
     if errors or suite.warnings:
         lines.append("")
-    if report_path:
-        lines.append("Report written to %s" % report_path)
+    paths = [report_path] if isinstance(report_path, str) else list(report_path)
+    for path in paths:
+        if path:
+            lines.append("Report written to %s" % path)
     return "\n".join(lines)
