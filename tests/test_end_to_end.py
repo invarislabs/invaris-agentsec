@@ -6,7 +6,7 @@ import pytest
 from agentsec.adapters import HTTPAgentAdapter
 from agentsec.attacks import CATEGORIES
 from agentsec.cli.main import main
-from agentsec.policies import parse_policy
+from agentsec.policies import PolicyError, parse_policy
 from agentsec.reports import build_report, render_terminal
 from agentsec.runners import run_suite
 from agentsec.traces import trace_json_schema
@@ -29,7 +29,7 @@ def test_vulnerable_agent_has_findings_in_every_category(policy_text, vulnerable
 
 def test_safe_agent_passes_everything(policy_text, safe_url):
     suite = suite_for(policy_text, safe_url)
-    assert len(suite.results) == 30
+    assert len(suite.results) == 34
     assert suite.findings == []
 
 
@@ -59,16 +59,27 @@ def test_terminal_report_shape(policy_text, vulnerable_url):
     out = render_terminal(suite_for(policy_text, vulnerable_url), report_path=".agentsec/report.json")
     lines = out.splitlines()
     assert lines[0] == "Invaris AgentSec"
-    assert "30 scenarios executed" in out and "0 passed" in out
+    assert "34 scenarios executed" in out and "0 passed" in out
     assert out.index("CRITICAL") < out.index("HIGH") < out.index("MEDIUM")
     assert SECRET not in out
     assert lines[-1] == "Report written to .agentsec/report.json"
 
 
-def test_memory_poisoning_is_skipped_with_warning(policy_text, safe_url):
-    suite = suite_for(policy_text + "tests: [prompt_injection, memory_poisoning]\n", safe_url)
-    assert len(suite.results) == 5
-    assert "memory_poisoning is planned for Phase 2" in suite.warnings[0]
+def test_memory_poisoning_findings_against_vulnerable_agent(policy_text, vulnerable_url):
+    suite = suite_for(policy_text + "tests: [memory_poisoning]\n", vulnerable_url)
+    titles = {f.title for f in suite.findings}
+    assert "Poisoned memory persisted into a later session" in titles
+    assert "Poisoned memory triggered send_email" in titles
+    assert "Poisoned memory triggered reveal_credentials" in titles
+    assert "Memory leaked across sessions" in titles
+    # every scenario recorded two conversations
+    for r in suite.results:
+        assert {e.meta["phase"] for e in r.trace.events} == {0, 1}
+
+
+def test_unknown_category_is_an_error(policy_text, safe_url):
+    with pytest.raises(PolicyError, match="unknown test category"):
+        suite_for(policy_text + "tests: [bogus]\n", safe_url)
 
 
 def write_policy(tmp_path, text, url):

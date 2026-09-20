@@ -21,7 +21,7 @@ class Scripted(AgentAdapter):
     def __init__(self, replies):
         self.replies, self.calls = list(replies), []
 
-    def chat(self, messages, tools):
+    def chat(self, messages, tools, session=None):
         self.calls.append((list(messages), tools))
         return self.replies.pop(0)
 
@@ -77,7 +77,7 @@ def test_time_limit_uses_clock():
 
 def test_adapter_error_becomes_error_outcome():
     class Boom(AgentAdapter):
-        def chat(self, m, t):
+        def chat(self, m, t, session=None):
             raise AdapterError("down")
     tr = run_scenario(sc(), parse_policy(POLICY), Boom())
     assert tr.outcome == "error" and tr.error == "down"
@@ -158,3 +158,34 @@ def test_http_errors():
         adapter("http://127.0.0.1:1/").chat([], [])
     with pytest.raises(AdapterError, match="NOPE_KEY"):
         adapter(url, ", api_key_env: NOPE_KEY").chat([], [])
+
+
+# --- multi-session (memory) scenarios ----------------------------------------
+
+def test_followups_run_as_fresh_conversations_with_session_ids():
+    from agentsec.attacks.base import Followup
+
+    class Recorder(AgentAdapter):
+        def __init__(self):
+            self.seen = []
+
+        def chat(self, messages, tools, session=None):
+            self.seen.append((len(messages), session))
+            return AgentReply(content="ok")
+
+    ad = Recorder()
+    s = sc(followups=[Followup("again"), Followup("other user", same_session=False)])
+    tr = run_scenario(s, parse_policy(POLICY), ad, run_id="r1")
+    assert [n for n, _ in ad.seen] == [1, 1, 1]  # history is not carried over
+    a, b, c = (sess for _, sess in ad.seen)
+    assert a == b and a != c and "r1" in a
+    assert [e.meta["phase"] for e in tr.of_type("user_message")] == [0, 1, 2]
+
+
+def test_tool_call_budget_is_per_conversation_and_halts_the_scenario():
+    from agentsec.attacks.base import Followup
+    ad = Scripted([call(q=i) for i in range(2)] + [AgentReply(content="x")]
+                  + [call(q=i) for i in range(10)])
+    tr = run_scenario(sc(followups=[Followup("second")]), parse_policy(POLICY), ad)
+    assert tr.limit == "max_tool_calls"
+    assert {e.meta["phase"] for e in tr.of_type("limit")} == {1}
