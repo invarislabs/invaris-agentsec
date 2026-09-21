@@ -6,7 +6,7 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development. Phase 1 (the local testing engine) is complete and most of Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks) is implemented; later phases below are planned and may evolve. Interfaces marked as provisional may still change.
+> **Project status:** Early development. Phase 1 (the local testing engine) and Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks, the GitHub Action) are complete, and Phase 3 is partly done (regression comparison, streaming, MCP server scanning); the rest is planned and may evolve. The first PyPI release is being prepared. Interfaces marked as provisional may still change.
 
 ## Why AgentSec?
 

@@ -112,8 +112,8 @@ by dropping lines that look like instructions or restricted content, and makes a
 
 The demo secret is synthetic. Do not deploy either mode: it is a test fixture, and the vulnerable one is dangerous by design.
 
-Note that the reference agent's tool results are supplied by AgentSec's simulator, not by a real document store. A version that
-runs its own retrieval is planned.
+Note that this reference agent's tool results are supplied by AgentSec's simulator, not by a real document store. The RAG-backed
+agent below runs its own retrieval.
 
 ### The RAG-backed reference agent
 
