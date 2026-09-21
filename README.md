@@ -293,7 +293,8 @@ Turns the local engine into something teams can drop into a pipeline.
 
 ### Phase 3 - Framework and protocol coverage
 
-- [ ] Add MCP client and server testing
+- [x] Scan MCP servers for poisoned tool definitions and rug pulls (`agentsec mcp scan`; see docs/mcp-testing.md)
+- [ ] Test agents that use MCP servers end to end (MCP client-side scenarios)
 - [ ] Support popular agent frameworks (a generic `CallableAdapter` for in-process agents exists; no framework-specific integrations yet)
 - [x] Add regression comparison between runs (`agentsec compare`)
 - [x] Support agents that execute tools server-side and stream their replies (server-sent events, `agent.stream: true`)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import List, Optional
 
@@ -9,6 +10,9 @@ from .. import __version__
 from ..adapters import HTTPAgentAdapter
 from ..compare import CompareError, compare, load as load_compare_report, render as render_compare
 from ..evaluators import SEVERITIES, severity_rank
+from ..mcp import (MCPError, build_mcp_report, compare_pins, connect_http, connect_stdio, make_pins,
+                   render_mcp_terminal, scan_tools)
+from ..mcp.report import write_mcp_report
 from ..policies import PolicyError, load_policy, policy_json_schema
 from ..reports import (FORMATS, annotations, append_step_summary, in_github_actions,
                        render_markdown, render_terminal, write_reports)
@@ -130,6 +134,58 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     return EXIT_FINDINGS if result.regressions(args.fail_on) else EXIT_OK
 
 
+def _cmd_mcp_scan(args: argparse.Namespace) -> int:
+    allowed, forbidden = None, None
+    if args.policy:
+        policy = load_policy(args.policy)
+        allowed, forbidden = policy.allowed_tools, policy.forbidden_actions
+    headers = {}
+    for h in args.header or []:
+        if "=" not in h:
+            raise PolicyError("--header must look like Name=value")
+        k, v = h.split("=", 1)
+        headers[k.strip()] = os.path.expandvars(v)
+    try:
+        client = (connect_stdio(args.command, args.timeout) if args.command
+                  else connect_http(args.url, headers, args.timeout))
+        with client:
+            client.initialize()
+            tools = client.list_tools()
+            second = client.list_tools() if args.recheck else None
+            info = client.server_info
+    except MCPError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return EXIT_ERROR
+    findings = scan_tools(tools, allowed, forbidden)
+    if second is not None:
+        findings += compare_pins(make_pins(tools), second)
+    if args.pin_write:
+        with open(args.pin_write, "w", encoding="utf-8") as fh:
+            json.dump(make_pins(tools), fh, indent=2)
+            fh.write("\n")
+        print("Pinned %d tool definition(s) to %s" % (len(tools), args.pin_write))
+    elif args.pin:
+        try:
+            with open(args.pin, encoding="utf-8") as fh:
+                pins = json.load(fh)
+        except (OSError, ValueError) as exc:
+            print("error: cannot read pin file %s: %s" % (args.pin, exc), file=sys.stderr)
+            return EXIT_ERROR
+        findings += compare_pins(pins, tools)
+    report = build_mcp_report(args.command or args.url, info, tools, findings)
+    path = write_mcp_report(report, args.out)
+    print(render_mcp_terminal(report))
+    print("\nReport written to %s" % path)
+    if in_github_actions():
+        for line in annotations(report):
+            print(line)
+    if args.fail_on != "none":
+        threshold = severity_rank(args.fail_on)
+        if any(severity_rank(f.severity) >= threshold for f in findings):
+            return EXIT_FINDINGS
+    return EXIT_OK
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
     try:
         with open(args.path, "x", encoding="utf-8") as fh:
@@ -181,6 +237,23 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low",
                    help="exit 1 if a new or worsened finding at or above this severity exists (default low)")
     c.set_defaults(func=_cmd_compare)
+
+    m = sub.add_parser("mcp", help="test MCP servers")
+    msub = m.add_subparsers(dest="mcp_command", required=True)
+    ms = msub.add_parser("scan", help="connect to an MCP server, list its tools and check the definitions "
+                                      "(never calls a tool)")
+    target = ms.add_mutually_exclusive_group(required=True)
+    target.add_argument("--command", help="start a stdio server with this command, e.g. 'python server.py'")
+    target.add_argument("--url", help="streamable-HTTP server URL")
+    ms.add_argument("--header", action="append", help="HTTP header Name=value (repeatable; $ENV_VARS are expanded)")
+    ms.add_argument("--policy", "-p", help="agentsec.yaml whose allowed_tools / forbidden_actions the server is checked against")
+    ms.add_argument("--pin", help="pin file from an earlier --pin-write; changed definitions are reported")
+    ms.add_argument("--pin-write", help="write a pin file with the current definitions")
+    ms.add_argument("--recheck", action="store_true", help="list tools twice in one session and report changes")
+    ms.add_argument("--out", "-o", default=".agentsec", help="report directory (default .agentsec)")
+    ms.add_argument("--timeout", type=float, default=20.0)
+    ms.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low")
+    ms.set_defaults(func=_cmd_mcp_scan)
 
     i = sub.add_parser("init", help="write a starter agentsec.yaml")
     i.add_argument("path", nargs="?", default="agentsec.yaml")

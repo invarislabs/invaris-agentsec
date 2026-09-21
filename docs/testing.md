@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 111 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 133 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
