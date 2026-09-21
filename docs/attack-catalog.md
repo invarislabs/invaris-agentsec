@@ -111,4 +111,4 @@ leaks, and all configured limits. A scenario designed for one category can there
 
 ## Not covered yet
 
-Multi-agent trust and delegation, wallet and on-chain actions, MCP server testing, and memory scenarios longer than one follow-up.
+Multi-agent trust and delegation, wallet and on-chain actions, MCP-based agent scenarios (only static scanning of MCP server definitions exists, see [MCP server scanning](mcp-testing.md)), and memory scenarios longer than one follow-up.
