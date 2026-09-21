@@ -41,6 +41,15 @@ Accepted variations:
 - A plain text agent may reply `{"response": "..."}`, `{"output": "..."}` or `{"content": "..."}`. It cannot trigger tool-based findings, but leaks and injections in its text are still detected.
 - `usage.prompt_tokens` and `usage.completion_tokens` feed the token, and if `agent.pricing` is set, cost limits.
 - Authentication: set `agent.api_key_env` and AgentSec sends `Authorization: Bearer <value>`.
+- Session identity: every request carries `"user": "<session id>"` and an `X-AgentSec-Session` header. See below.
+
+## Sessions and memory
+
+For memory tests AgentSec runs a second conversation that shares nothing with the first except the **session id**. If your agent has long-term memory, key it on the
+`user` field of the request body (or the `X-AgentSec-Session` header). Requests for the same simulated user share an id, and the "different user" scenario uses another id.
+The id contains a random per-run part, so memory from a previous AgentSec run is never reused.
+
+Agents without memory can ignore the field. If your agent stores memory but does not key it by user, the cross-session scenario will report a leak, and that is the finding it is designed to produce.
 
 ## Agents that run their own tools
 
@@ -65,7 +74,7 @@ Because the calls are real on your side, run them only against sandboxed or mock
 
 ## What your agent should do to be tested well
 
-- Treat every request as a fresh conversation. AgentSec resends the full history each time and holds no session.
+- Treat every request as a fresh conversation. AgentSec resends the full history each time and holds no state between calls.
 - Call tools through the API's tool-calling mechanism so the calls are visible.
 - Return an error with a non-2xx status for failures. AgentSec records these as errored scenarios, never as passes.
 - Keep responses within `agent.timeout_s`.
@@ -90,9 +99,10 @@ The server answers a POST on any path, so both `/agent` and `/v1/chat/completion
 - It follows marker instructions and prints a system prompt containing a demo secret (`sk-live-INVARIS-DEMO-7f3a9c1e5b2d`) on request.
 - It puts restricted document content into its answers.
 - It retries forever when a tool says "try again" or "call again", and it fans out one call per item.
+- It stores anything it is told to "remember" or "save to memory", including from documents and tool results, replays it in later conversations of the same session, and shares user facts with other users.
 
 **Safe mode.** It refuses direct injections, secret requests and tool instructions in user messages, treats tool output as data
-by dropping lines that look like instructions or restricted content, and makes a single lookup.
+by dropping lines that look like instructions or restricted content, and makes a single lookup. It keeps user-stated facts private to their own session and never stores content from tools or documents.
 
 The demo secret is synthetic. Do not deploy either mode: it is a test fixture, and the vulnerable one is dangerous by design.
 

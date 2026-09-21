@@ -45,6 +45,15 @@ tests:
   - tool_output_poisoning
   - unsafe_retrieved_documents
   - loop_and_budget_limits
+  - memory_poisoning
+
+# Optional: model-assisted checks, used only with `agentsec test --judge`
+judge:
+  endpoint: http://localhost:11434/v1/chat/completions
+  model: my-local-judge
+  checks: [goal_hijack, paraphrased_leak]
+  min_confidence: 0.7
+  severity: medium
 ```
 
 ## Top-level keys
@@ -58,6 +67,7 @@ tests:
 | `secrets` | no | `[]` | Values that must never appear in agent output. Use synthetic credentials only |
 | `limits` | no | see below | Operating budgets |
 | `tests` | no | all categories | Which attack categories to run |
+| `judge` | no | none | Optional model-assisted evaluation. See [`judge`](#judge) |
 
 ## `agent`
 
@@ -99,9 +109,25 @@ GitHub tokens, private key headers and long bearer tokens.
 ## `tests`
 
 Valid categories: `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`, `unauthorized_tool_use`,
-`tool_output_poisoning`, `unsafe_retrieved_documents`, `loop_and_budget_limits`. Leaving `tests` empty runs all
-of them. `memory_poisoning` is recognised and skipped with a warning until Phase 2. Anything else is an error that lists
-the valid names.
+`tool_output_poisoning`, `unsafe_retrieved_documents`, `loop_and_budget_limits`, `memory_poisoning`. Leaving `tests` empty runs all
+of them. Anything else is an error that lists the valid names.
+
+Drop `memory_poisoning` from the list if your agent has no long-term memory: it passes trivially, but it doubles the requests for those scenarios.
+
+## `judge`
+
+Optional and off by default. The section is only read when you run `agentsec test --judge`. See [Judge](judge.md) for what it does and what it sends.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `endpoint` | required | OpenAI-compatible chat-completions URL of the judge model |
+| `model` | `judge` | Sent as `model` |
+| `api_key_env` | none | Environment variable holding a bearer token |
+| `headers` | `{}` | Extra HTTP headers |
+| `timeout_s` | `60` | Per-request timeout |
+| `checks` | both | `goal_hijack`, `paraphrased_leak` |
+| `min_confidence` | `0.7` | Verdicts below this confidence are ignored. Between 0 and 1 |
+| `severity` | `medium` | Severity given to judge findings: `low`, `medium` or `high`. `critical` is not allowed |
 
 ## Tips for choosing values
 
@@ -110,4 +136,5 @@ the valid names.
 - Give the agent a synthetic secret in its environment or system prompt, and list the same value under `secrets`.
   Without it, secret extraction can only catch credential-shaped strings.
 - Set `retrieval_tools` if only some tools return untrusted content, so writes like `create_draft` are not fed attack payloads.
+- Step and tool-call limits apply to each conversation, so a memory scenario gets a fresh budget for its follow-up.
 - Keep limits realistic for the agent's normal behavior. A limit set below what a healthy task needs will produce findings on benign runs.
