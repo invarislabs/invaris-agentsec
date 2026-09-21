@@ -48,3 +48,29 @@ def safe_url():
 @pytest.fixture
 def policy_text():
     return POLICY_YAML
+
+
+_rag_spec = importlib.util.spec_from_file_location(
+    "rag_agent", ROOT / "examples" / "rag_agent" / "server.py")
+rag_agent = importlib.util.module_from_spec(_rag_spec)
+_rag_spec.loader.exec_module(rag_agent)
+
+
+def _serve_rag(safe):
+    server = rag_agent.make_server(port=0, safe=safe)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, "http://127.0.0.1:%d/agent" % server.server_address[1]
+
+
+@pytest.fixture
+def rag_vulnerable():
+    server, url = _serve_rag(False)
+    yield server, url
+    server.shutdown()
+
+
+@pytest.fixture
+def rag_safe():
+    server, url = _serve_rag(True)
+    yield server, url
+    server.shutdown()
