@@ -15,6 +15,7 @@ These docs describe what is built today: the Phase 1 local testing engine and mo
 | [Judge (model-assisted checks)](judge.md) | Enable the optional judge model, and understand what it sends and reports |
 | [Python API and pytest](python-api-and-pytest.md) | Run scenarios from code and from pytest |
 | [Testing](testing.md) | Run the test suite, verify the engine by hand, add AgentSec to CI |
+| [MCP server scanning](mcp-testing.md) | Scan an MCP server's tool definitions for poisoning, shadowing and rug pulls |
 | [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
 
@@ -34,6 +35,7 @@ rules cannot see, and its findings are labelled as model-assisted.
 - 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
 - Terminal, JSON, HTML and Markdown reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
+- `agentsec mcp scan` to check MCP server tool definitions (static, never calls tools).
 - `agentsec compare` to diff two reports and flag regressions.
 - A Python API and a pytest plugin.
 - An opt-in model-assisted judge, never critical and always labelled.

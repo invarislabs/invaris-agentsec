@@ -1,0 +1,71 @@
+# MCP server scanning
+
+`agentsec mcp scan` connects to an [MCP](https://modelcontextprotocol.io) server, lists its tools and checks
+their definitions for the ways a malicious or compromised server attacks the agent that connects to it.
+
+**It never calls a tool.** It only sends `initialize` and `tools/list`, so scanning cannot trigger a server's side effects.
+(It does start the server if you give `--command`, so only scan servers you are willing to run.)
+
+## Usage
+
+```bash
+# a local stdio server
+agentsec mcp scan --command "python my_server.py"
+
+# a streamable-HTTP server (headers may use $ENV_VARS)
+agentsec mcp scan --url https://mcp.example.com/mcp --header "Authorization=Bearer $TOKEN"
+
+# also check against your policy's allowed_tools and forbidden_actions
+agentsec mcp scan --command "python my_server.py" --policy agentsec.yaml
+
+# pin definitions once, then detect later changes (rug pulls)
+agentsec mcp scan --command "python my_server.py" --pin-write mcp.pins.json
+agentsec mcp scan --command "python my_server.py" --pin mcp.pins.json
+
+# list twice in one session and report differences
+agentsec mcp scan --command "python my_server.py" --recheck
+```
+
+Options: `--out DIR` (report directory, default `.agentsec`, file `mcp-report.json`), `--timeout SECONDS`,
+`--fail-on low|medium|high|critical|none`. Exit codes match `agentsec test`: 0 clean, 1 findings at or above
+the threshold, 2 could not connect or read a file.
+
+Try it on the bundled demo server, which has clean, poisoned and rug-pull modes:
+
+```bash
+agentsec mcp scan --command "python examples/mcp_servers/server.py"                 # clean, exit 0
+agentsec mcp scan --command "python examples/mcp_servers/server.py --poisoned"      # exit 1
+agentsec mcp scan --command "python examples/mcp_servers/server.py --rugpull" --recheck   # exit 1
+```
+
+## What it checks
+
+| Rule | Severity | Meaning |
+|---|---|---|
+| `mcp_tool_poisoning` | critical / high | Instructions aimed at the model in a description or anywhere in the input schema ("ignore previous instructions", "do not tell the user", `<IMPORTANT>` tags, extra steps around the call). Critical when combined with references to secret files or sending data out; high otherwise |
+| `mcp_invisible_characters` | high | Zero-width, bidirectional or tag characters that can hide text from a human reviewer |
+| `mcp_tool_shadowing` | medium | One tool's description gives instructions about how to use another tool |
+| `mcp_sensitive_reference` | medium | A definition names credentials or secret files (`~/.ssh`, `.env`, API keys) |
+| `mcp_forbidden_tool_exposed` | high | The server offers a tool in your policy's `forbidden_actions` |
+| `mcp_unlisted_tool` | medium | With a policy: a tool not in `allowed_tools` |
+| `mcp_duplicate_tool` | medium | The same tool name is listed twice |
+| `mcp_definition_changed` | high | With `--pin` or `--recheck`: a definition differs from the pinned or earlier one |
+| `mcp_tool_added`, `mcp_tool_removed` | medium, low | With `--pin`: the tool list changed |
+| `mcp_high_impact_tool` | low | Without a policy: a tool named like shell, delete, payment or email |
+| `mcp_unconstrained_input` | low | A free-form `command`, `sql`, `code`-style string with no enum, pattern or length limit |
+| `mcp_oversized_description` | low | A description over 2000 characters |
+
+Findings are mapped to OWASP agentic categories (mostly ASI04, supply chain) like all others, and the
+report has the same `findings` and `scenarios` layout as `agentsec test`, so `agentsec compare` works on two
+`mcp-report.json` files.
+
+## Limits: read before relying on it
+
+- These are **pattern checks on definitions**. A clean result does not mean a server is safe. A server can
+  behave badly in `tools/call` results, be obfuscated beyond the patterns, or be benign today and change later.
+- The instruction patterns are English-only and heuristic. Expect some false positives and misses.
+- `--recheck` and `--pin` catch changes only between the moments you list. A server that changes definitions
+  only for certain clients, times or after tool calls would not be caught.
+- Server output at run time (tool results) is covered by the agent-side `tool_output_poisoning` scenarios, not by this scanner.
+- Testing an agent that *uses* MCP servers end to end is not built yet; today the scanner covers the server side.
+- Verified against the bundled demo server and a test HTTP server, not against a range of real-world MCP servers.
