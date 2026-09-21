@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 74 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 80 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -34,6 +34,7 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_reports_phase2.py` | OWASP mapping, HTML report (well-formed, self-contained, escapes untrusted text, masks secrets), Markdown summary, GitHub annotations and job summary, `--format` |
 | `tests/test_replay.py` | Replay reproduces against the same agent, reports NOT REPRODUCED against a hardened one, honours the recorded seed, finding and scenario filters, CLI exit codes |
 | `tests/test_judge.py` | Verdict parsing, model-assisted labelling and confidence, skipping already-flagged scenarios, secret masking and prompt hardening, failed judge calls, policy validation, and `--judge` over HTTP against a stub |
+| `tests/test_rag_example.py` | The RAG reference agent: retrieval ranking, the example policy, the vulnerable agent caught through server-side `x_agentsec` events (critical `send_email` findings from the poisoned document, restricted runbook content and the system-prompt key leaking), the safe agent passing with only `search_documents` in its outbox, the `/outbox` endpoint, and secret masking |
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 
 The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in all 8 categories,

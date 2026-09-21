@@ -142,6 +142,8 @@ review scenarios the deterministic checks passed, for example a paraphrased leak
 labelled `model-assisted`, are never critical, and are opt-in because transcripts are sent to the
 judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
+**A RAG-style agent.** `examples/rag_agent` owns a small document corpus and runs its tools itself, reporting the calls to AgentSec. Start it with `python examples/rag_agent/server.py` (add `--safe` for the hardened variant) and test it with `agentsec test -p examples/rag_agent/agentsec.yaml`. See [`docs/agent-contract.md`](docs/agent-contract.md#the-rag-backed-reference-agent).
+
 **Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
 
@@ -232,7 +234,7 @@ agentsec/
 ├── owasp.py          # Mapping of findings to OWASP agentic categories
 ├── api.py            # Python API (AgentTarget, SecuritySuite)
 └── pytest_plugin.py  # pytest fixtures
-examples/             # Vulnerable reference agent
+examples/             # Vulnerable reference agents (rule-based and RAG-backed)
 tests/                # Unit and end-to-end tests
 ```
 
@@ -261,7 +263,7 @@ The first usable release focuses on a narrow, verifiable workflow. Status:
 - [x] Terminal and JSON reports
 - [x] HTML reports
 - [ ] GitHub Actions integration (annotations and job summary are built; a packaged action is planned)
-- [x] Intentionally vulnerable reference agent (deterministic and rule-based; a RAG-backed version is planned)
+- [x] Intentionally vulnerable reference agents: a rule-based one, and a RAG-backed one with its own documents and server-side tools
 
 ## Roadmap
 
@@ -287,7 +289,7 @@ Turns the local engine into something teams can drop into a pipeline.
 - [x] Add memory-poisoning scenarios (four two-session scenarios)
 - [x] Add optional model-assisted evaluators alongside the deterministic ones
 - [x] Map findings to OWASP agentic categories (ASI01 to ASI10)
-- [ ] Add a RAG-backed vulnerable example that runs its own tools
+- [x] Add a RAG-backed vulnerable example that runs its own tools (`examples/rag_agent`)
 
 ### Phase 3 - Framework and protocol coverage
 

@@ -73,6 +73,19 @@ categories. Findings from the optional judge carry a `[model-assisted]` tag.
 
 Open `.agentsec/report.html` in a browser for the same information with expandable evidence and full traces.
 
+## Try the RAG-backed example
+
+`examples/rag_agent` is closer to a real application than the rule-based agent. It has its own documents (`examples/rag_agent/corpus/`), retrieves from them, and runs tools itself.
+Because AgentSec cannot see server-side tool calls unless told, it reports them in `x_agentsec.events`. See the [agent contract](agent-contract.md#the-rag-backed-reference-agent).
+
+```bash
+python examples/rag_agent/server.py                    # vulnerable, port 8100
+agentsec test -p examples/rag_agent/agentsec.yaml      # 22 scenarios, 30 findings, exit code 1
+```
+
+Restart it with `--safe` and the same command passes all 22 scenarios. While the vulnerable agent is running, `curl http://127.0.0.1:8100/outbox` shows the simulated side effects
+it performed, such as a `send_email` triggered by a poisoned document.
+
 ## Test your own agent
 
 1. Create a starter policy: `agentsec init`
