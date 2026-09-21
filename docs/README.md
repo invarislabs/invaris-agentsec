@@ -37,5 +37,5 @@ rules cannot see, and its findings are labelled as model-assisted.
 - An opt-in model-assisted judge, never critical and always labelled.
 - GitHub Actions annotations and job summary. A packaged, reusable action is planned.
 - One adapter: OpenAI-compatible HTTP.
-- A deliberately vulnerable reference agent and a hardened variant, both rule-based and offline. A RAG-backed example is planned.
-- 74 automated tests.
+- Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
+- 80 automated tests.
