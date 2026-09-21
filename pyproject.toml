@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,28 @@ version = "0.3.0"
 description = "Adversarial security and reliability testing for autonomous AI agents."
 readme = "README.md"
 requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "Invaris Labs"}]
+keywords = ["ai-agents", "security", "prompt-injection", "red-teaming", "mcp", "llm", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = ["PyYAML>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/invarislabs/invaris-agentsec"
+Documentation = "https://github.com/invarislabs/invaris-agentsec/tree/main/docs"
+Issues = "https://github.com/invarislabs/invaris-agentsec/issues"
+Changelog = "https://github.com/invarislabs/invaris-agentsec/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "jsonschema>=4"]
