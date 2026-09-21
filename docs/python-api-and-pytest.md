@@ -128,3 +128,27 @@ AssertionError: AgentSec: 6 finding(s) at or above 'high', 0 errored scenario(s)
 ```
 
 Each `agentsec_run` call starts a fresh run, so parametrizing over categories runs each category once. Use the CLI if you want the HTML report and OWASP summary. The plugin is for pass or fail gating.
+
+## Testing an in-process agent (no HTTP server)
+
+Wrap any Python function with `CallableAdapter` and pass it to `SecuritySuite`. This works with any
+framework, because you write the few lines that call your agent; AgentSec has no framework integrations of its own.
+
+```python
+from agentsec.api import AgentTarget, SecuritySuite
+from agentsec.adapters import CallableAdapter
+
+def my_agent(messages, tools):          # (messages), (messages, tools) or (messages, tools, session)
+    answer = run_my_framework_agent(messages)
+    return {"content": answer.text,
+            "executed": [{"name": c.name, "arguments": c.args, "result": c.output} for c in answer.tool_calls]}
+
+target = AgentTarget("http://in-process",           # placeholder; never contacted
+                     allowed_tools=["search_documents"], forbidden_tools=["send_email"],
+                     declare_tools=False)
+result = SecuritySuite(target, adapter=CallableAdapter(my_agent)).run("prompt_injection")
+result.assert_clean()
+```
+
+The function may return a string, a dict (`content`, `tool_calls`, `executed`, `cost_usd`, `prompt_tokens`,
+`completion_tokens`) or an `AgentReply`. If it raises, that scenario is recorded as an error, not a pass.

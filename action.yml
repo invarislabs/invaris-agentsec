@@ -1,0 +1,126 @@
+name: Invaris AgentSec
+description: Adversarial security testing for AI agents. Runs the AgentSec suite, uploads the reports and fails the job on findings.
+author: Invaris Labs
+
+inputs:
+  policy:
+    description: Path to the policy file, relative to working-directory.
+    default: agentsec.yaml
+  fail-on:
+    description: Fail the job if a finding at or above this severity exists (critical, high, medium, low or none).
+    default: low
+  seed:
+    description: Seed for reproducible scenarios.
+    default: "0"
+  formats:
+    description: Report formats, comma-separated (json, html, markdown).
+    default: json,html,markdown
+  judge:
+    description: Run the model-assisted evaluators configured under `judge:` in the policy.
+    default: "false"
+  start-command:
+    description: Shell command that starts the agent under test. It is run in the background and stopped after the tests.
+    default: ""
+  wait-for-url:
+    description: URL to poll until the agent answers HTTP (any status counts). Only used with start-command.
+    default: ""
+  wait-timeout:
+    description: Seconds to wait for wait-for-url.
+    default: "60"
+  working-directory:
+    description: Directory to run in.
+    default: .
+  out:
+    description: Report directory, relative to working-directory.
+    default: .agentsec
+  python-version:
+    description: Python version to set up. Leave empty to use the runner's Python.
+    default: "3.11"
+  package:
+    description: What to pip install. Empty installs the copy of AgentSec from this action's own repository. Example, invaris-agentsec==0.2.0.
+    default: ""
+  extra-args:
+    description: Extra arguments passed to `agentsec test`, for example "-s prompt_injection".
+    default: ""
+  upload-artifact:
+    description: Upload the report directory as a workflow artifact.
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded artifact. Use a unique name per matrix entry.
+    default: agentsec-report
+
+outputs:
+  exit-code:
+    description: Exit code of `agentsec test` (0 clean, 1 findings, 2 error).
+    value: ${{ steps.run.outputs.exit-code }}
+  findings:
+    description: Number of findings.
+    value: ${{ steps.run.outputs.findings }}
+  scenarios:
+    description: Number of scenarios executed.
+    value: ${{ steps.run.outputs.scenarios }}
+  report-dir:
+    description: Directory containing the reports.
+    value: ${{ steps.run.outputs.report-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      if: inputs.python-version != ''
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install AgentSec
+      shell: bash
+      env:
+        PACKAGE: ${{ inputs.package }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: python -m pip install --quiet "${PACKAGE:-$ACTION_PATH}"
+
+    - name: Start the agent
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        START_COMMAND: ${{ inputs.start-command }}
+        WAIT_URL: ${{ inputs.wait-for-url }}
+        WAIT_TIMEOUT: ${{ inputs.wait-timeout }}
+      run: bash "${{ github.action_path }}/action/start-agent.sh"
+
+    - name: Run AgentSec
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        POLICY: ${{ inputs.policy }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SEED: ${{ inputs.seed }}
+        FORMATS: ${{ inputs.formats }}
+        OUT: ${{ inputs.out }}
+        JUDGE: ${{ inputs.judge }}
+        EXTRA_ARGS: ${{ inputs.extra-args }}
+      run: bash "${{ github.action_path }}/action/run-agentsec.sh"
+
+    - name: Stop the agent
+      if: always()
+      shell: bash
+      run: bash "${{ github.action_path }}/action/stop-agent.sh"
+
+    - name: Upload reports
+      if: always() && inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/${{ inputs.out }}
+        if-no-files-found: ignore
+
+    - name: Fail the job if AgentSec found issues
+      shell: bash
+      env:
+        EXIT_CODE: ${{ steps.run.outputs.exit-code }}
+      run: |
+        if [ "${EXIT_CODE:-1}" != "0" ]; then
+          echo "::error title=AgentSec::AgentSec exited with code ${EXIT_CODE:-unknown} (see the annotations and the job summary above)"
+          exit "${EXIT_CODE:-1}"
+        fi

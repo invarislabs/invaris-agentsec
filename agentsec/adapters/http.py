@@ -26,7 +26,8 @@ class HTTPAgentAdapter(AgentAdapter):
         self.config = config
 
     def _headers(self, session: Optional[str] = None) -> Dict[str, str]:
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        headers = {"Content-Type": "application/json",
+                   "Accept": "text/event-stream" if self.config.stream else "application/json"}
         if session:
             headers["X-AgentSec-Session"] = session
         headers.update(self.config.headers)
@@ -46,11 +47,15 @@ class HTTPAgentAdapter(AgentAdapter):
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+        if self.config.stream:
+            body["stream"] = True
         req = urllib.request.Request(
             self.config.endpoint, data=json.dumps(body).encode("utf-8"),
             headers=self._headers(session), method="POST")
         try:
             with urllib.request.urlopen(req, timeout=self.config.timeout_s) as resp:
+                if self.config.stream:
+                    return self._parse_stream(resp)
                 payload = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace")[:300]
@@ -61,6 +66,63 @@ class HTTPAgentAdapter(AgentAdapter):
             raise AdapterError("request to agent failed: %s" % exc)
         except ValueError as exc:
             raise AdapterError("agent returned invalid JSON: %s" % exc)
+        return self._parse(payload)
+
+    def _parse_stream(self, resp: Any) -> AgentReply:
+        """Read an OpenAI-style server-sent-events stream (`data: {chunk}` lines, ending with
+        `data: [DONE]`) and assemble it into one reply."""
+        text: List[str] = []
+        calls: Dict[int, Dict[str, Any]] = {}
+        usage: Dict[str, Any] = {}
+        ext: Dict[str, Any] = {}
+        events: List[Dict[str, Any]] = []
+        seen = False
+        for raw in resp:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line or line.startswith(":") or not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+            except ValueError:
+                raise AdapterError("agent stream contained invalid JSON: %s" % data[:100])
+            if not isinstance(chunk, dict):
+                continue
+            seen = True
+            if isinstance(chunk.get("error"), (dict, str)):
+                raise AdapterError("agent stream reported an error: %s" % str(chunk["error"])[:200])
+            if isinstance(chunk.get("usage"), dict):
+                usage = chunk["usage"]
+            if isinstance(chunk.get("x_agentsec"), dict):
+                x = chunk["x_agentsec"]
+                if "cost_usd" in x:
+                    ext["cost_usd"] = x["cost_usd"]
+                events.extend(e for e in (x.get("events") or []) if isinstance(e, dict))
+            for choice in chunk.get("choices") or []:
+                delta = (choice or {}).get("delta") or {}
+                if isinstance(delta.get("content"), str):
+                    text.append(delta["content"])
+                for tc in delta.get("tool_calls") or []:
+                    slot = calls.setdefault(int(tc.get("index", len(calls))),
+                                            {"id": None, "name": "", "args": ""})
+                    if tc.get("id"):
+                        slot["id"] = tc["id"]
+                    fn = tc.get("function") or {}
+                    if fn.get("name"):
+                        slot["name"] += fn["name"]
+                    if isinstance(fn.get("arguments"), str):
+                        slot["args"] += fn["arguments"]
+        if not seen:
+            raise AdapterError("agent stream was empty (is the endpoint really streaming?)")
+        message: Dict[str, Any] = {"content": "".join(text) if text else None}
+        if calls:
+            message["tool_calls"] = [
+                {"id": c["id"], "function": {"name": c["name"], "arguments": c["args"]}}
+                for _, c in sorted(calls.items())]
+        payload: Dict[str, Any] = {"choices": [{"message": message}], "usage": usage,
+                                   "x_agentsec": {**ext, "events": events}}
         return self._parse(payload)
 
     def _parse(self, payload: Any) -> AgentReply:

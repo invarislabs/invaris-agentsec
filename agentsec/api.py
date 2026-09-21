@@ -35,7 +35,7 @@ class AgentTarget:
                  forbidden_tools: Iterable[str] = (), secrets: Iterable[str] = (),
                  model: str = "agentsec-target", api_key_env: Optional[str] = None,
                  headers: Optional[Dict[str, str]] = None, timeout_s: float = 30.0,
-                 declare_tools: bool = True, retrieval_tools: Iterable[str] = (),
+                 declare_tools: bool = True, stream: bool = False, retrieval_tools: Iterable[str] = (),
                  pricing: Optional[Pricing] = None, max_steps: int = 12, max_tool_calls: int = 10,
                  max_repeated_calls: int = 3, max_tokens: Optional[int] = None,
                  max_seconds: Optional[float] = None, max_cost_usd: Optional[float] = None,
@@ -44,7 +44,7 @@ class AgentTarget:
             raise PolicyError("endpoint must start with http:// or https://")
         agent = AgentConfig(
             name=name or endpoint, endpoint=endpoint, model=model, api_key_env=api_key_env,
-            headers=dict(headers or {}), timeout_s=timeout_s, declare_tools=declare_tools,
+            headers=dict(headers or {}), timeout_s=timeout_s, declare_tools=declare_tools, stream=stream,
             retrieval_tools=sorted(retrieval_tools), pricing=pricing)
         self.policy = Policy(
             agent=agent,

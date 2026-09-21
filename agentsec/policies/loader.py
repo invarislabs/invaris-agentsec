@@ -10,7 +10,7 @@ from .schema import (JUDGE_CHECKS, POLICY_VERSION, AgentConfig, JudgeConfig, Lim
 _TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests", "judge"}
 _JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
-          "declare_tools", "retrieval_tools", "pricing"}
+          "declare_tools", "stream", "retrieval_tools", "pricing"}
 _LIMITS = {"max_steps", "max_tool_calls", "max_repeated_calls", "max_tokens",
            "max_seconds", "max_cost_usd"}
 _PRICING = {"input_per_1k", "output_per_1k"}
@@ -41,6 +41,12 @@ def _number(section: str, value: Any, *, integer: bool = False, minimum: float =
         ok = ok and isinstance(value, int)
     if not ok or value < minimum:
         raise PolicyError("%s must be a %snumber >= %s" % (section, "whole " if integer else "", minimum))
+    return value
+
+
+def _boolean(section: str, value: Any) -> bool:
+    if not isinstance(value, bool):
+        raise PolicyError("%s must be true or false" % section)
     return value
 
 
@@ -85,6 +91,7 @@ def parse_policy(text: str) -> Policy:
         api_key_env=a.get("api_key_env"), headers=dict(headers),
         timeout_s=float(_number("agent.timeout_s", a.get("timeout_s", 30), minimum=0.1)),
         declare_tools=bool(a.get("declare_tools", True)),
+        stream=_boolean("agent.stream", a.get("stream", False)),
         retrieval_tools=_str_list("agent.retrieval_tools", a.get("retrieval_tools", [])),
         pricing=pricing,
     )

@@ -15,6 +15,7 @@ These docs describe what is built today: the Phase 1 local testing engine and mo
 | [Judge (model-assisted checks)](judge.md) | Enable the optional judge model, and understand what it sends and reports |
 | [Python API and pytest](python-api-and-pytest.md) | Run scenarios from code and from pytest |
 | [Testing](testing.md) | Run the test suite, verify the engine by hand, add AgentSec to CI |
+| [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
 
 ## What AgentSec does in one paragraph
@@ -33,9 +34,10 @@ rules cannot see, and its findings are labelled as model-assisted.
 - 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
 - Terminal, JSON, HTML and Markdown reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
+- `agentsec compare` to diff two reports and flag regressions.
 - A Python API and a pytest plugin.
 - An opt-in model-assisted judge, never critical and always labelled.
-- GitHub Actions annotations and job summary. A packaged, reusable action is planned.
-- One adapter: OpenAI-compatible HTTP.
+- GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
+- Adapters: OpenAI-compatible HTTP (optionally streaming) and an in-process `CallableAdapter`.
 - Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
 - 80 automated tests.

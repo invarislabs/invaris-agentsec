@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from .. import __version__
 from ..adapters import HTTPAgentAdapter
+from ..compare import CompareError, compare, load as load_compare_report, render as render_compare
 from ..evaluators import SEVERITIES, severity_rank
 from ..policies import PolicyError, load_policy, policy_json_schema
 from ..reports import (FORMATS, annotations, append_step_summary, in_github_actions,
@@ -117,6 +118,18 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     return EXIT_FINDINGS if (result.reproduced or result.new_findings) else EXIT_OK
 
 
+def _cmd_compare(args: argparse.Namespace) -> int:
+    try:
+        result = compare(load_compare_report(args.baseline), load_compare_report(args.current))
+    except CompareError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return EXIT_ERROR
+    print(render_compare(result))
+    if args.fail_on == "none":
+        return EXIT_OK
+    return EXIT_FINDINGS if result.regressions(args.fail_on) else EXIT_OK
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
     try:
         with open(args.path, "x", encoding="utf-8") as fh:
@@ -161,6 +174,13 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--scenario", "-s", action="append", help="replay only findings of this scenario id (repeatable)")
     r.add_argument("--judge", action="store_true", help="enable the judge so model-assisted findings can be re-checked")
     r.set_defaults(func=_cmd_replay)
+
+    c = sub.add_parser("compare", help="diff two report.json files and flag regressions")
+    c.add_argument("baseline", help="earlier report.json (for example from main)")
+    c.add_argument("current", help="newer report.json (for example from a pull request)")
+    c.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low",
+                   help="exit 1 if a new or worsened finding at or above this severity exists (default low)")
+    c.set_defaults(func=_cmd_compare)
 
     i = sub.add_parser("init", help="write a starter agentsec.yaml")
     i.add_argument("path", nargs="?", default="agentsec.yaml")

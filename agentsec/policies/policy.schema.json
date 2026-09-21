@@ -52,6 +52,9 @@
         "declare_tools": {
           "type": "boolean"
         },
+        "stream": {
+          "type": "boolean"
+        },
         "retrieval_tools": {
           "type": "array",
           "items": {

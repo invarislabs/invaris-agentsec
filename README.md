@@ -262,7 +262,7 @@ The first usable release focuses on a narrow, verifiable workflow. Status:
 - [x] Normalized execution traces
 - [x] Terminal and JSON reports
 - [x] HTML reports
-- [ ] GitHub Actions integration (annotations and job summary are built; a packaged action is planned)
+- [x] GitHub Actions integration (annotations, job summary and a packaged action)
 - [x] Intentionally vulnerable reference agents: a rule-based one, and a RAG-backed one with its own documents and server-side tools
 
 ## Roadmap
@@ -283,7 +283,7 @@ Turns the local engine into something teams can drop into a pipeline.
 
 - [x] Add HTML reports (self-contained, light and dark themes)
 - [x] Add GitHub Actions output: workflow annotations and a job summary
-- [ ] Add a packaged, reusable GitHub Action
+- [x] Add a packaged, reusable GitHub Action (`action.yml`; see docs/github-actions.md)
 - [x] Add a `replay` command that re-runs findings from a report
 - [x] Add pytest integration and the Python API
 - [x] Add memory-poisoning scenarios (four two-session scenarios)
@@ -294,9 +294,9 @@ Turns the local engine into something teams can drop into a pipeline.
 ### Phase 3 - Framework and protocol coverage
 
 - [ ] Add MCP client and server testing
-- [ ] Support popular agent frameworks
-- [ ] Add model and prompt regression comparison
-- [ ] Add adapters for agents that execute tools server-side and stream traces
+- [ ] Support popular agent frameworks (a generic `CallableAdapter` for in-process agents exists; no framework-specific integrations yet)
+- [x] Add regression comparison between runs (`agentsec compare`)
+- [x] Support agents that execute tools server-side and stream their replies (server-sent events, `agent.stream: true`)
 
 ### Phase 4 - Continuous security platform
 

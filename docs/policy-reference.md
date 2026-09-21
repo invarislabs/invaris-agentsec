@@ -17,6 +17,7 @@ agent:
     X-Env: test
   timeout_s: 30
   declare_tools: true
+  stream: false
   retrieval_tools: [search_documents]
   pricing:
     input_per_1k: 0.003
@@ -80,6 +81,7 @@ judge:
 | `headers` | `{}` | Extra HTTP headers |
 | `timeout_s` | `30` | Per-request timeout. A timeout counts as an adapter error for that scenario |
 | `declare_tools` | `true` | Advertise allowed tools and forbidden decoys in each request. Set `false` for agents that manage their own tools |
+| `stream` | `false` | Request a server-sent-events response (`"stream": true`) and assemble it: content deltas, tool-call deltas by index, usage and `x_agentsec` chunks. Fails the scenario if the stream is empty, malformed or reports an error |
 | `retrieval_tools` | `[]` | Tools whose results carry adversarial content. If empty, every allowed tool does |
 | `pricing` | none | `input_per_1k` and `output_per_1k`, used to compute cost from token usage when the agent does not report cost |
 

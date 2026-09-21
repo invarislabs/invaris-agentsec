@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest
+
+  # The hardened reference agent must pass, and the action must exit 0.
+  agentsec-passes-on-safe-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --safe --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          artifact-name: agentsec-safe-agent
+
+  # The vulnerable reference agent must fail the job. This guards the whole detection and gating path.
+  agentsec-fails-on-vulnerable-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: vulnerable
+        uses: ./
+        continue-on-error: true
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          artifact-name: agentsec-vulnerable-agent
+      - name: The vulnerable agent must be reported
+        if: steps.vulnerable.outputs.exit-code != '1'
+        run: |
+          echo "::error::Expected exit code 1 from the vulnerable agent, got '${{ steps.vulnerable.outputs.exit-code }}'"
+          exit 1
+
+  agentsec-rag-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          policy: examples/rag_agent/agentsec.yaml
+          start-command: python examples/rag_agent/server.py --safe --port 8100
+          wait-for-url: http://127.0.0.1:8100/
+          artifact-name: agentsec-rag-agent
