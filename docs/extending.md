@@ -86,7 +86,7 @@ Raise `AdapterError` with a clear message for anything the runner should record 
 because the runner resends the full message history on every step. `session` identifies the simulated user; pass it to agents that keep memory (the HTTP adapter sends it as `user` and `X-AgentSec-Session`). Adapters are constructed in `agentsec/cli/main.py`. Selecting one from
 the policy (for example an `agent.type` key) is not implemented yet, so it is a small change to the loader and the CLI.
 
-For an agent that lives in your Python process, you do not need a new adapter: wrap a function with `CallableAdapter` (see
+For LangChain or LangGraph see [Frameworks](frameworks.md). For an agent that lives in your Python process, you do not need a new adapter: wrap a function with `CallableAdapter` (see
 [Python API](python-api-and-pytest.md#testing-an-in-process-agent-no-http-server)). For a streaming HTTP agent set `agent.stream: true`.
 
 ## Add an MCP check

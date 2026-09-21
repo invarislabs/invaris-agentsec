@@ -110,6 +110,7 @@ Never point it at production. See the Security Model in the main README.
 | `-s, --scenario NAME` | all | Run only this category or scenario id. Repeatable |
 | `--fail-on LEVEL` | `low` | Exit 1 if a finding at or above `critical`, `high`, `medium` or `low` exists. `none` never fails on findings |
 | `--judge` | off | Also run the model-assisted evaluators configured under `judge:` in the policy. See [Judge](judge.md) |
+| `--mcp-listen HOST:PORT` | off | Run AgentSec as the MCP server your agent connects to. See [MCP testing](mcp-testing.md#testing-an-agent-that-uses-mcp---mcp-listen) |
 | `-v, --verbose` | off | Print progress and per-finding detail |
 
 Examples:

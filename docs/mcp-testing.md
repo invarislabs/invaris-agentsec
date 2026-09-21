@@ -67,5 +67,40 @@ report has the same `findings` and `scenarios` layout as `agentsec test`, so `ag
 - `--recheck` and `--pin` catch changes only between the moments you list. A server that changes definitions
   only for certain clients, times or after tool calls would not be caught.
 - Server output at run time (tool results) is covered by the agent-side `tool_output_poisoning` scenarios, not by this scanner.
-- Testing an agent that *uses* MCP servers end to end is not built yet; today the scanner covers the server side.
+- The scanner covers the server side. To test an agent that *uses* MCP servers, see the next section.
 - Verified against the bundled demo server and a test HTTP server, not against a range of real-world MCP servers.
+
+# Testing an agent that uses MCP (`--mcp-listen`)
+
+The scanner checks a server's definitions. To test an *agent* that connects to MCP servers, AgentSec plays the server:
+
+```bash
+# 1. AgentSec serves the policy's tools over MCP (streamable HTTP at /mcp) and runs the suite
+agentsec test -p agentsec.yaml --mcp-listen 127.0.0.1:8765
+
+# 2. your agent, configured to use http://127.0.0.1:8765/mcp as its MCP server, answers AgentSec's chat requests
+```
+
+Point your agent's MCP client at the URL printed on start. From there the run works like any other:
+
+- The host offers `allowed_tools` plus the `forbidden_actions` as decoys, exactly like the simulated-tool runner. AgentSec sends **no** tool definitions in the chat request, because the agent already gets its tools over MCP. (`agent.declare_tools` is ignored.)
+- Tool results for the scenario's retrieval tools carry the adversarial content (poisoned documents, tool-output injection, memory payloads). Other tools return `OK (simulated by AgentSec sandbox; no real action was taken)`.
+- Every `tools/call` the agent makes is recorded, including calls to tools the host never offered (that attempt is a finding), and appears in the trace as a tool call executed by the agent. All evaluators, reports, replay and compare work unchanged.
+- The agent runs its tool loop inside one chat request, so AgentSec cannot stop it mid-loop. The tool-call budget is therefore checked afterwards and reported as `limit_max_tool_calls`; runaway loops are also caught by `repeated_calls` and the time and cost limits.
+
+Try it with the bundled agent, which uses the MCP host and reuses the decision logic of the vulnerable reference agent:
+
+```bash
+python examples/mcp_agent/server.py --mcp-url http://127.0.0.1:8765/mcp &          # add --safe for the hardened variant
+agentsec test -p examples/mcp_agent/agentsec.yaml --mcp-listen 127.0.0.1:8765
+```
+
+Python API: `SecuritySuite(target, adapter=..., mcp_host=MCPAttackHost(policy).start())`.
+
+Notes and limits:
+
+- The host serves adversarial content and accepts any client. It listens on loopback by default; the CLI warns if you bind elsewhere. Do not expose it beyond an isolated network.
+- Only streamable HTTP is supported (JSON responses, no server-initiated streams, no authentication). Agents that can only launch stdio servers cannot use it yet.
+- Tool schemas are generic (`query` plus free-form arguments). An agent that validates arguments against precise schemas may behave differently from how it would with your real servers.
+- This tests how the agent handles hostile tool results and decoy tools. It does not test the agent against your *real* MCP servers.
+- Verified against the bundled reference agent (vulnerable: caught, including critical findings; safe: passes all scenarios), not against real MCP-capable agent frameworks.

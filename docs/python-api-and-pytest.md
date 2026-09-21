@@ -129,6 +129,8 @@ AssertionError: AgentSec: 6 finding(s) at or above 'high', 0 errored scenario(s)
 
 Each `agentsec_run` call starts a fresh run, so parametrizing over categories runs each category once. Use the CLI if you want the HTML report and OWASP summary. The plugin is for pass or fail gating.
 
+Optional arguments of `SecuritySuite`: `seed`, `adapter`, `judge`, and `mcp_host` (an `MCPAttackHost`, see [MCP testing](mcp-testing.md)).
+
 ## Testing an in-process agent (no HTTP server)
 
 Wrap any Python function with `CallableAdapter` and pass it to `SecuritySuite`. This works with any
