@@ -369,7 +369,7 @@ If AgentSec identifies a vulnerability in a third-party agent, framework, or int
 
 ## License
 
-The intended license for the open-source testing engine is Apache License 2.0. The final license will be confirmed before the first public release.
+Invaris AgentSec is licensed under the [Apache License 2.0](LICENSE).
 
 ## About Invaris Labs
 
