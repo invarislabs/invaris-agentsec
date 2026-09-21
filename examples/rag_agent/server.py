@@ -164,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
         except (KeyError, ValueError, StopIteration) as exc:
             return self._send(400, {"error": "bad request: %s" % exc})
         text, events = self.agent.answer(question)
+        if body.get("stream"):
+            return self._stream(body, text, events)
         self._send(200, {
             "id": "chatcmpl-rag", "object": "chat.completion", "model": body.get("model", "rag"),
             "choices": [{"index": 0, "message": {"role": "assistant", "content": text},
@@ -172,6 +174,26 @@ class Handler(BaseHTTPRequestHandler):
                       "total_tokens": _tokens(body["messages"]) + _tokens(text)},
             "x_agentsec": {"events": events},
         })
+
+    def _stream(self, body: Dict[str, Any], text: str, events: Any) -> None:
+        """Server-sent events, OpenAI style: content deltas, a usage chunk, then [DONE]."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+
+        def chunk(obj: Dict[str, Any]) -> None:
+            self.wfile.write(b"data: " + json.dumps(obj).encode() + b"\n\n")
+            self.wfile.flush()
+
+        base = {"id": "chatcmpl-rag", "object": "chat.completion.chunk", "model": body.get("model", "rag")}
+        for word in text.split(" "):
+            chunk({**base, "choices": [{"index": 0, "delta": {"content": word + " "}}]})
+        chunk({**base, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+               "usage": {"prompt_tokens": _tokens(body["messages"]), "completion_tokens": _tokens(text)},
+               "x_agentsec": {"events": events}})
+        self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
 
     def _send(self, status: int, payload: Dict[str, Any]) -> None:
         data = json.dumps(payload).encode()

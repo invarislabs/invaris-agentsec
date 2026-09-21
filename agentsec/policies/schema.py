@@ -28,6 +28,7 @@ class AgentConfig:
     headers: Dict[str, str] = field(default_factory=dict)
     timeout_s: float = 30.0
     declare_tools: bool = True
+    stream: bool = False
     retrieval_tools: List[str] = field(default_factory=list)
     pricing: Optional[Pricing] = None
 
@@ -91,7 +92,7 @@ class Policy:
             "agent": {
                 "name": a.name, "endpoint": a.endpoint, "model": a.model,
                 "api_key_env": a.api_key_env, "timeout_s": a.timeout_s,
-                "declare_tools": a.declare_tools, "retrieval_tools": a.retrieval_tools,
+                "declare_tools": a.declare_tools, "stream": a.stream, "retrieval_tools": a.retrieval_tools,
             },
             "allowed_tools": self.allowed_tools,
             "forbidden_actions": self.forbidden_actions,
