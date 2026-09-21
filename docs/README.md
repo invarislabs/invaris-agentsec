@@ -1,6 +1,6 @@
 # Invaris AgentSec documentation
 
-These docs describe what is built today: the Phase 1 local testing engine and most of Phase 2. Planned work is in the
+These docs describe what is built today: the Phase 1 local testing engine, Phase 2, and the first parts of Phase 3 (regression comparison, streaming, MCP server scanning). Planned work is in the
 [roadmap](../README.md#roadmap) and is not described here.
 
 | Document | Read it to... |

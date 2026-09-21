@@ -86,6 +86,15 @@ Raise `AdapterError` with a clear message for anything the runner should record 
 because the runner resends the full message history on every step. `session` identifies the simulated user; pass it to agents that keep memory (the HTTP adapter sends it as `user` and `X-AgentSec-Session`). Adapters are constructed in `agentsec/cli/main.py`. Selecting one from
 the policy (for example an `agent.type` key) is not implemented yet, so it is a small change to the loader and the CLI.
 
+For an agent that lives in your Python process, you do not need a new adapter: wrap a function with `CallableAdapter` (see
+[Python API](python-api-and-pytest.md#testing-an-in-process-agent-no-http-server)). For a streaming HTTP agent set `agent.stream: true`.
+
+## Add an MCP check
+
+Checks on MCP tool definitions live in `agentsec/mcp/checks.py` (`scan_tools`). Add a rule by appending a `Finding` built with `_finding(...)`,
+give it an `mcp_` rule id, map it to OWASP categories in `agentsec/owasp.py`, and cover it in `tests/test_mcp.py` with one definition that must
+be flagged and one near miss that must not. Keep patterns narrow: a description that merely says "you must provide a path" must stay clean.
+
 ## Change the policy or trace schema
 
 Update the dataclasses and the loader, the matching JSON Schema file (`policy.schema.json` or `trace.schema.json`), and the tests.

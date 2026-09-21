@@ -17,7 +17,7 @@
 ```json
 {
   "report_schema_version": "1",
-  "tool": {"name": "invaris-agentsec", "version": "0.1.0"},
+  "tool": {"name": "invaris-agentsec", "version": "0.3.0"},
   "generated_at": "2026-09-20T09:15:02+00:00",
   "run_config": {
     "seed": 0,
@@ -142,3 +142,14 @@ jq '.scenarios[] | select(.id=="prompt_injection/ignore_previous").trace' .agent
 
 `jq` is optional. The file is plain JSON. A successful reproduction is a finding with the same `id` after re-running with the recorded seed
 against the same agent build. `agentsec replay` does this for you.
+
+## MCP scan reports
+
+`agentsec mcp scan` writes `mcp-report.json` with `"kind": "mcp_scan"`. It has the same `findings` and `scenarios` layout as a normal report
+(each tool is a scenario with id `mcp/<tool>`, findings have category `mcp_server`), plus the server's name and version under `run_config.server`
+and the list of tools. It has no traces or HTML version. Because the layout matches, `agentsec compare old-mcp-report.json new-mcp-report.json` works. See [MCP server scanning](mcp-testing.md).
+
+## Comparing reports
+
+`agentsec compare BASELINE CURRENT` matches findings by their `id` (`<scenario>:<rule>[:<key>]`), which is stable for a given seed and policy. It
+reports new, fixed, unchanged and severity-changed findings and warns when seeds, policies or scenario sets differ. See [Getting started](getting-started.md#agentsec-compare-baseline-current).

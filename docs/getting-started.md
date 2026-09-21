@@ -166,6 +166,12 @@ It exits 1 if a new or worsened finding is at or above `--fail-on` (default `low
 It warns when the seeds, policies or scenario sets differ. A finding whose scenario is missing or errored in
 the new run is listed as "not comparable", never as fixed.
 
+### `agentsec mcp scan`
+
+Connects to an MCP server, lists its tools (it never calls one) and checks the definitions for poisoning, hidden
+characters, shadowing and changes since a pin. Use `--command "python server.py"` or `--url https://...`.
+Options and rules are in [MCP server scanning](mcp-testing.md). It writes `mcp-report.json` and uses the same exit codes.
+
 ### `agentsec init [PATH]`
 
 Writes a starter policy (default `agentsec.yaml`). It refuses to overwrite an existing file.
@@ -180,13 +186,13 @@ Prints the JSON Schema for the policy file or for a trace, for editor validation
 |---|---|
 | 0 | Run completed and no finding reached the `--fail-on` threshold |
 | 1 | At least one finding reached the `--fail-on` threshold |
-| 2 | Configuration error (bad policy, unknown category or scenario, unreadable report) or every scenario errored, usually because the agent is unreachable. For `replay`, also when a replayed scenario could not run |
+| 2 | Configuration error (bad policy, unknown category or scenario, unreadable report or pin file, MCP server that cannot be reached) or every scenario errored, usually because the agent is unreachable. For `replay`, also when a replayed scenario could not run |
 
 ## In GitHub Actions
 
 When `GITHUB_ACTIONS=true`, `agentsec test` also prints one workflow annotation per finding (critical and high as errors, medium as
 warnings, low as notices) and appends a Markdown summary to the job summary (`GITHUB_STEP_SUMMARY`). No flags are needed.
-See [Testing](testing.md#run-agentsec-in-ci) for a full workflow.
+See [GitHub Actions](github-actions.md) for the packaged action, or [Testing](testing.md#run-agentsec-in-ci) for a hand-written workflow.
 
 ## Troubleshooting
 
