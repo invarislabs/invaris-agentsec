@@ -71,7 +71,27 @@ def _cmd_test(args: argparse.Namespace) -> int:
     if args.verbose:
         progress = lambda sc: print("running %s" % sc.id, file=sys.stderr)
     formats = _parse_formats(args.format)
-    suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress, judge=args.judge)
+    host = None
+    if args.mcp_listen:
+        from ..mcp import MCPAttackHost
+        hostname, _, port = args.mcp_listen.rpartition(":")
+        if not port.isdigit():
+            raise PolicyError("--mcp-listen must look like HOST:PORT or :PORT, e.g. 127.0.0.1:8765")
+        if hostname not in ("", "127.0.0.1", "localhost", "::1"):
+            print("warning: the MCP attack host is listening on %s. It serves adversarial content and "
+                  "accepts any client; only do this on an isolated network." % hostname, file=sys.stderr)
+        try:
+            host = MCPAttackHost(policy, hostname or "127.0.0.1", int(port)).start()
+        except OSError as exc:
+            raise PolicyError("cannot listen on %s: %s" % (args.mcp_listen, exc))
+        print("AgentSec MCP host listening at %s (point your agent's MCP client here)" % host.url,
+              file=sys.stderr)
+    try:
+        suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress, judge=args.judge,
+                          host=host)
+    finally:
+        if host is not None:
+            host.stop()
     report, paths = write_reports(suite, args.out, formats)
     print(render_terminal(suite, report_path=paths, color=sys.stdout.isatty(), verbose=args.verbose))
     if in_github_actions():
@@ -219,6 +239,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="exit 1 if a finding at or above this severity exists (default low = any)")
     t.add_argument("--judge", action="store_true",
                    help="also run the model-assisted evaluators configured under `judge:` in the policy")
+    t.add_argument("--mcp-listen", metavar="HOST:PORT",
+                   help="run AgentSec as the MCP server your agent connects to (streamable HTTP at /mcp); "
+                        "tools come from the policy and tool results carry the adversarial content")
     t.add_argument("--verbose", "-v", action="store_true")
     t.set_defaults(func=_cmd_test)
 

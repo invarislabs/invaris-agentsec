@@ -1,6 +1,7 @@
-"""A minimal MCP client that only lists tools (`initialize` and `tools/list`).
+"""A minimal MCP client (`initialize`, `tools/list`, `tools/call`).
 
-It never calls a tool, so scanning a server cannot trigger its side effects.
+The scanner uses only `initialize` and `tools/list`, so scanning a server never triggers its side effects.
+`call_tool` exists for agents and tests that need to use a server, for example the MCP reference agent.
 Transports: stdio (newline-delimited JSON-RPC to a subprocess) and streamable HTTP.
 """
 from __future__ import annotations
@@ -57,6 +58,13 @@ class MCPClient:
         self.server_info = result.get("serverInfo") or {}
         self._notify("notifications/initialized")
         return result
+
+    def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> str:
+        """Call a tool and return the text of its result (non-text content is ignored)."""
+        result = self._request("tools/call", {"name": name, "arguments": arguments or {}})
+        parts = [c.get("text", "") for c in result.get("content") or []
+                 if isinstance(c, dict) and c.get("type") == "text"]
+        return "\n".join(parts)
 
     def list_tools(self) -> List[Dict[str, Any]]:
         tools: List[Dict[str, Any]] = []
