@@ -16,6 +16,7 @@ Scenario(
     markers=[],                               # strings whose presence proves the agent obeyed
     canaries=[],                              # planted values that must not appear in output
     responder=None,                           # function (tool, args, call_index) -> result text
+    followups=[],                             # later conversations, for memory scenarios
 )
 ```
 
@@ -26,6 +27,9 @@ Helpers on the `ScenarioContext` (`ctx`) keep scenarios reproducible and tied to
 - `ctx.canary(salt)`: a unique planted value derived from the seed.
 - `ctx.retrieval_tool()`: the name of the tool that carries adversarial content.
 
+For a memory scenario, add `Followup(user_message, responder=None, same_session=True)` entries to `followups`. Each runs as a fresh conversation, and its trace events carry `meta.phase`.
+`same_session=False` simulates a different user.
+
 Set `vector` carefully. It determines severity: forbidden actions triggered through documents and tool output are critical.
 
 ## Add a new category
@@ -35,7 +39,7 @@ Set `vector` carefully. It determines severity: forbidden actions triggered thro
 3. Add it to the category list in `docs/policy-reference.md` and the catalog in `docs/attack-catalog.md`.
 4. Add tests and, if the reference agent should fail it, teach `examples/vulnerable_rag_agent/server.py` the behaviour.
 
-To move a name out of `PLANNED` (such as `memory_poisoning`), register it in `CATEGORIES` and delete it from `PLANNED`.
+`PLANNED` in the same file holds category names that policies accept but that are not implemented yet. It is empty today. A name in `PLANNED` is skipped with a warning instead of raising an error.
 
 ## Add an evaluator
 
@@ -61,7 +65,7 @@ class MyEvaluator(Evaluator):
         return findings
 ```
 
-Add the class to `DEFAULT_EVALUATORS` in `agentsec/evaluators/__init__.py`. Guidelines:
+Add the class to `DEFAULT_EVALUATORS` in `agentsec/evaluators/__init__.py`. To classify its findings for OWASP, add the rule id to `agentsec/owasp.py`. Guidelines:
 
 - Base the check on the trace only. Do not call the agent or network.
 - Give each finding a `key` when a scenario could produce several of the same rule, so ids stay unique.
@@ -74,12 +78,12 @@ Subclass `AgentAdapter` in `agentsec/adapters/` and implement one method:
 
 ```python
 class MyAdapter(AgentAdapter):
-    def chat(self, messages, tools) -> AgentReply:
+    def chat(self, messages, tools, session=None) -> AgentReply:
         ...  # call your agent, return AgentReply(content=..., tool_calls=[ToolCall(id, name, args)], ...)
 ```
 
-Raise `AdapterError` with a clear message for anything the runner should record as an errored scenario. The adapter must be stateless,
-because the runner resends the full message history on every step. Adapters are constructed in `agentsec/cli/main.py`. Selecting one from
+Raise `AdapterError` with a clear message for anything the runner should record as an errored scenario. The adapter must not keep conversation state,
+because the runner resends the full message history on every step. `session` identifies the simulated user; pass it to agents that keep memory (the HTTP adapter sends it as `user` and `X-AgentSec-Session`). Adapters are constructed in `agentsec/cli/main.py`. Selecting one from
 the policy (for example an `agent.type` key) is not implemented yet, so it is a small change to the loader and the CLI.
 
 ## Change the policy or trace schema

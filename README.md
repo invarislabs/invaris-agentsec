@@ -6,7 +6,7 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development. Phase 1 (the local testing engine) is implemented and usable; later phases below are planned and may evolve. Interfaces marked as provisional may still change.
+> **Project status:** Early development. Phase 1 (the local testing engine) is complete and most of Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks) is implemented; later phases below are planned and may evolve. Interfaces marked as provisional may still change.
 
 ## Why AgentSec?
 
@@ -94,7 +94,7 @@ Run the security suite:
 agentsec test
 ```
 
-Example output (Phase 1 writes `.agentsec/report.json`; an HTML report is planned for Phase 2):
+Example output (reports are also written to `.agentsec/report.json` and `.agentsec/report.html`):
 
 ```text
 Invaris AgentSec
@@ -109,9 +109,10 @@ HIGH      Agent attempted a forbidden payment action
 MEDIUM    Tool-call budget exceeded
 
 Report written to .agentsec/report.json
+Report written to .agentsec/report.html
 ```
 
-## Try It (Phase 1)
+## Try It
 
 Run the bundled intentionally vulnerable agent, then test it:
 
@@ -121,23 +122,45 @@ python examples/vulnerable_rag_agent/server.py &          # add --safe for the h
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-Reports are written to `.agentsec/report.json` (secrets are masked). `agentsec test` exits
-`1` when findings exist (`--fail-on high` to raise the bar, `--fail-on none` to never fail),
-and `2` on configuration or connection errors. Use `--seed N` for a reproducible run and
-`-s <category-or-scenario-id>` to run a subset. `agentsec init` writes a starter policy and
-`agentsec schema policy|trace` prints the JSON schemas.
+Against the vulnerable agent you should see 34 scenarios executed and findings in all eight
+categories. With `--safe`, all 34 pass.
 
-The Phase 1 categories are `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`,
-`unauthorized_tool_use`, `tool_output_poisoning`, `unsafe_retrieved_documents` and
-`loop_and_budget_limits`. `memory_poisoning` is accepted in a policy but skipped until Phase 2.
+**Reports.** `agentsec test` writes `.agentsec/report.json` and a self-contained
+`.agentsec/report.html` (`--format json,html,markdown` to choose). Secrets are masked. Every finding
+is tagged with the closest [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)
+category (ASI01 to ASI10).
+
+**Exit codes.** `agentsec test` exits `1` when findings exist (`--fail-on high` to raise the bar,
+`--fail-on none` to never fail) and `2` on configuration or connection errors. Use `--seed N` for a
+reproducible run and `-s <category-or-scenario-id>` to run a subset.
+
+**Replay.** `agentsec replay .agentsec/report.json` re-runs the findings from an earlier report with
+the recorded seed and prints `REPRODUCED` or `NOT REPRODUCED` for each, so you can confirm a fix.
+
+**Model-assisted checks.** Add a `judge:` section to your policy and pass `--judge` to have a model
+review scenarios the deterministic checks passed, for example a paraphrased leak. These findings are
+labelled `model-assisted`, are never critical, and are opt-in because transcripts are sent to the
+judge endpoint. See [`docs/judge.md`](docs/judge.md).
+
+**Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
+the JSON schemas.
+
+The categories are `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`,
+`unauthorized_tool_use`, `tool_output_poisoning`, `unsafe_retrieved_documents`,
+`loop_and_budget_limits` and `memory_poisoning`.
 
 **Agent contract.** The adapter posts OpenAI-style chat-completions requests to `agent.endpoint`
 and declares your allowed tools (plus forbidden actions as decoys). AgentSec plays the tools:
 every call is simulated, and results carry the adversarial content. Agents that run tools
-server-side can report them in an `x_agentsec.events` field. List the synthetic credentials your
-agent can see under `secrets:` so leaks are detected.
+server-side can report them in an `x_agentsec.events` field, and agents with memory can key it on the
+`user` field (also sent as `X-AgentSec-Session`). List the synthetic credentials your agent can see
+under `secrets:` so leaks are detected.
 
-Full documentation, including architecture, policy reference, attack catalog, testing and extension guides, is in [`docs/`](docs/README.md).
+**In CI.** Inside GitHub Actions, `agentsec test` adds workflow annotations for each finding and
+writes a job summary automatically. See [`docs/testing.md`](docs/testing.md#run-agentsec-in-ci).
+
+Full documentation, including architecture, policy reference, attack catalog, Python API, testing
+and extension guides, is in [`docs/`](docs/README.md).
 
 ## Example Policy Test
 
@@ -161,7 +184,20 @@ assert result.forbidden_tool_calls == []
 assert result.total_tool_calls <= 10
 ```
 
-The Python API shown above is provisional and not implemented yet. It arrives with the pytest integration in Phase 2.
+`AgentTarget`, `SecuritySuite` and the result attributes above are implemented. In pytest, the
+bundled plugin adds an `agentsec_run` fixture:
+
+```python
+import pytest
+from agentsec import CATEGORIES
+
+@pytest.mark.parametrize("category", CATEGORIES)
+def test_agent_resists(category, agentsec_run):
+    agentsec_run(category, fail_on="high")
+```
+
+Run it with `pytest --agentsec-policy agentsec.yaml`. See [`docs/python-api-and-pytest.md`](docs/python-api-and-pytest.md).
+The API may still change before a stable release.
 
 ## How It Works
 
@@ -185,14 +221,17 @@ flowchart TD
 
 ```text
 agentsec/
-├── attacks/          # Prompt, retrieval and tool attacks (memory attacks planned)
+├── attacks/          # Prompt, retrieval, memory and tool attacks
 ├── adapters/         # Agent framework and API integrations (HTTP today)
-├── evaluators/       # Deterministic checks today; model-assisted planned
+├── evaluators/       # Deterministic checks plus an optional model-assisted judge
 ├── policies/         # Permissions, limits and expected behaviour
-├── runners/          # Local runner today; CI and sandboxed planned
+├── runners/          # Local runner and replay (CI and sandboxed planned)
 ├── traces/           # Normalized agent execution events
-├── reports/          # Terminal and JSON today; HTML planned
-└── cli/              # Command-line interface
+├── reports/          # Terminal, JSON, HTML, Markdown and GitHub output
+├── cli/              # Command-line interface
+├── owasp.py          # Mapping of findings to OWASP agentic categories
+├── api.py            # Python API (AgentTarget, SecuritySuite)
+└── pytest_plugin.py  # pytest fixtures
 examples/             # Vulnerable reference agent
 tests/                # Unit and end-to-end tests
 ```
@@ -220,8 +259,8 @@ The first usable release focuses on a narrow, verifiable workflow. Status:
 - [x] Tool-call, step, token, time, and cost limits
 - [x] Normalized execution traces
 - [x] Terminal and JSON reports
-- [ ] HTML reports
-- [ ] GitHub Actions integration
+- [x] HTML reports
+- [ ] GitHub Actions integration (annotations and job summary are built; a packaged action is planned)
 - [x] Intentionally vulnerable reference agent (deterministic and rule-based; a RAG-backed version is planned)
 
 ## Roadmap
@@ -236,17 +275,18 @@ The first usable release focuses on a narrow, verifiable workflow. Status:
 - [x] Publish a deterministic vulnerable reference agent, plus a hardened variant that passes the suite
 - [x] Reproducible runs via `--seed`, and a CI-friendly exit code
 
-### Phase 2 - CI, reporting and coverage
+### Phase 2 - CI, reporting and coverage (in progress)
 
 Turns the local engine into something teams can drop into a pipeline.
 
-- [ ] Add HTML reports
-- [ ] Add a GitHub Actions integration
-- [ ] Add a `replay` command that re-runs a failed scenario from a report
-- [ ] Add pytest integration and the Python API
-- [ ] Add memory-poisoning scenarios (accepted in policies today, skipped at runtime)
-- [ ] Add optional model-assisted evaluators alongside the deterministic ones
-- [ ] Map findings to OWASP agent-security categories
+- [x] Add HTML reports (self-contained, light and dark themes)
+- [x] Add GitHub Actions output: workflow annotations and a job summary
+- [ ] Add a packaged, reusable GitHub Action
+- [x] Add a `replay` command that re-runs findings from a report
+- [x] Add pytest integration and the Python API
+- [x] Add memory-poisoning scenarios (four two-session scenarios)
+- [x] Add optional model-assisted evaluators alongside the deterministic ones
+- [x] Map findings to OWASP agentic categories (ASI01 to ASI10)
 - [ ] Add a RAG-backed vulnerable example that runs its own tools
 
 ### Phase 3 - Framework and protocol coverage

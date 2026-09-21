@@ -32,9 +32,9 @@ Terminal 2:
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-You should see 30 scenarios executed, 0 passed and 34 findings (6 critical, 20 high, 8 medium),
-ending with `Report written to .agentsec/report.json`. The command exits with code 1 because
-findings exist.
+You should see 34 scenarios executed, 0 passed and 42 findings (10 critical, 24 high, 8 medium),
+ending with `Report written to .agentsec/report.json` and `Report written to .agentsec/report.html`.
+The command exits with code 1 because findings exist.
 
 Now stop the server and start the hardened variant:
 
@@ -43,7 +43,7 @@ python examples/vulnerable_rag_agent/server.py --safe
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-This time all 30 scenarios pass and the exit code is 0. Seeing both results is the quickest way to
+This time all 34 scenarios pass and the exit code is 0. Seeing both results is the quickest way to
 confirm that the engine detects real failures and does not raise false alarms.
 
 ## Reading the terminal output
@@ -51,9 +51,9 @@ confirm that the engine detects real failures and does not raise false alarms.
 ```text
 Invaris AgentSec
 
-30 scenarios executed
+34 scenarios executed
 0 passed
-34 findings
+42 findings
 
 CRITICAL  Indirect prompt injection triggered send_email
           indirect_prompt_injection/plain_appended  |  forbidden_actions: send_email
@@ -63,11 +63,15 @@ MEDIUM    Tool-call budget exceeded
           loop_and_budget_limits/pagination_trap  |  limits.max_tool_calls = 10
 
 Report written to .agentsec/report.json
+Report written to .agentsec/report.html
 ```
 
 The summary counts scenarios, not findings, so one scenario can produce several findings. Each
 finding shows its severity, a title, the scenario id, and the policy rule that was violated.
-Findings are sorted most severe first. Add `-v` to also print the observed action and a remediation hint.
+Findings are sorted most severe first. Add `-v` to also print the observed action, a remediation hint and the OWASP
+categories. Findings from the optional judge carry a `[model-assisted]` tag.
+
+Open `.agentsec/report.html` in a browser for the same information with expandable evidence and full traces.
 
 ## Test your own agent
 
@@ -87,10 +91,12 @@ Never point it at production. See the Security Model in the main README.
 | Option | Default | Meaning |
 |---|---|---|
 | `-p, --policy PATH` | `agentsec.yaml` | Policy file |
-| `-o, --out DIR` | `.agentsec` | Directory for `report.json` |
+| `-o, --out DIR` | `.agentsec` | Directory for the report files |
+| `-f, --format LIST` | `json,html` | Comma-separated report formats: `json`, `html`, `markdown` (writes `summary.md`) |
 | `--seed N` | `0` | Seed for canaries and markers. The same seed produces the same scenarios |
 | `-s, --scenario NAME` | all | Run only this category or scenario id. Repeatable |
 | `--fail-on LEVEL` | `low` | Exit 1 if a finding at or above `critical`, `high`, `medium` or `low` exists. `none` never fails on findings |
+| `--judge` | off | Also run the model-assisted evaluators configured under `judge:` in the policy. See [Judge](judge.md) |
 | `-v, --verbose` | off | Print progress and per-finding detail |
 
 Examples:
@@ -101,6 +107,38 @@ agentsec test -s secret_extraction/system_prompt       # one scenario
 agentsec test --fail-on high                           # only high and critical fail the build
 agentsec test --seed 42                                # different canaries and markers
 ```
+
+### `agentsec replay REPORT`
+
+Re-runs the findings from an earlier `report.json` to see whether they still reproduce, for example after fixing the agent.
+It rebuilds the same scenarios from the seed recorded in the report, runs them against the agent in `--policy`, and prints one line per finding.
+
+```bash
+agentsec replay .agentsec/report.json --policy agentsec.yaml
+agentsec replay .agentsec/report.json --finding 'indirect_prompt_injection/plain_appended:forbidden_action:send_email'
+agentsec replay .agentsec/report.json -s memory_poisoning/doc_instruction_marker
+```
+
+```text
+Replaying 2 findings from .agentsec/report.json (seed 0)
+REPRODUCED      critical Indirect prompt injection triggered send_email  [indirect_prompt_injection/plain_appended]
+NOT REPRODUCED  high     Secret exposed in response  [secret_extraction/system_prompt]
+
+1 reproduced, 1 not reproduced, 0 new, 0 errored
+Report written to .agentsec/replay/report.json
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `-p, --policy PATH` | `agentsec.yaml` | Policy to run. Point it at the fixed agent. A note is printed if the file differs from the one used for the report |
+| `-o, --out DIR` | `.agentsec/replay` | Where the replay report is written |
+| `--finding ID` | all | Replay only this finding id. Repeatable |
+| `-s, --scenario ID` | all | Replay only findings of this scenario. Repeatable |
+| `--judge` | off | Re-check model-assisted findings too. Without it they are skipped, with a note |
+
+`NEW` lines are findings that were not in the original report. Exit code 0 means nothing reproduced. Exit code 1 means at least one finding
+reproduced or a new one appeared. Exit code 2 means a scenario could not run.
+"NOT REPRODUCED" is evidence, not proof, that a fix works: an agent that samples from a model can vary between runs.
 
 ### `agentsec init [PATH]`
 
@@ -116,7 +154,13 @@ Prints the JSON Schema for the policy file or for a trace, for editor validation
 |---|---|
 | 0 | Run completed and no finding reached the `--fail-on` threshold |
 | 1 | At least one finding reached the `--fail-on` threshold |
-| 2 | Configuration error (bad policy, unknown category or scenario) or every scenario errored, usually because the agent is unreachable |
+| 2 | Configuration error (bad policy, unknown category or scenario, unreadable report) or every scenario errored, usually because the agent is unreachable. For `replay`, also when a replayed scenario could not run |
+
+## In GitHub Actions
+
+When `GITHUB_ACTIONS=true`, `agentsec test` also prints one workflow annotation per finding (critical and high as errors, medium as
+warnings, low as notices) and appends a Markdown summary to the job summary (`GITHUB_STEP_SUMMARY`). No flags are needed.
+See [Testing](testing.md#run-agentsec-in-ci) for a full workflow.
 
 ## Troubleshooting
 
@@ -134,5 +178,6 @@ attacked appear in `allowed_tools` or `agent.retrieval_tools`, that `secrets` li
 your agent can see, and that the agent really calls tools through the API (see the
 [agent contract](agent-contract.md)). A scenario that never reaches a tool cannot trigger a tool-based finding.
 
-**`memory_poisoning is planned for Phase 2 and was skipped`**: expected. The category is accepted in
-policies so that they do not need editing later, and it does nothing yet.
+**`--judge needs a judge: section`**: add a `judge:` block to the policy. See [Judge](judge.md).
+
+**`judge: N of M judge calls failed`**: the judge endpoint was unreachable or returned something that was not the expected JSON verdict. Those checks were skipped, not counted as passes.
