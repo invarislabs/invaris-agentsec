@@ -153,6 +153,19 @@ Report written to .agentsec/replay/report.json
 reproduced or a new one appeared. Exit code 2 means a scenario could not run.
 "NOT REPRODUCED" is evidence, not proof, that a fix works: an agent that samples from a model can vary between runs.
 
+### `agentsec compare BASELINE CURRENT`
+
+Diffs two `report.json` files by finding id and reports what is new, fixed, unchanged, or changed in
+severity. Use it in CI to catch regressions: keep a report from `main` and compare each pull request against it.
+
+```bash
+agentsec compare main-report.json .agentsec/report.json --fail-on high
+```
+
+It exits 1 if a new or worsened finding is at or above `--fail-on` (default `low`), 2 if a report cannot be read.
+It warns when the seeds, policies or scenario sets differ. A finding whose scenario is missing or errored in
+the new run is listed as "not comparable", never as fixed.
+
 ### `agentsec init [PATH]`
 
 Writes a starter policy (default `agentsec.yaml`). It refuses to overwrite an existing file.

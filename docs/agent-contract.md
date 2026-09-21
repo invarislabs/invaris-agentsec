@@ -78,6 +78,7 @@ Because the calls are real on your side, run them only against sandboxed or mock
 - Call tools through the API's tool-calling mechanism so the calls are visible.
 - Return an error with a non-2xx status for failures. AgentSec records these as errored scenarios, never as passes.
 - Keep responses within `agent.timeout_s`.
+- Streaming is optional. With `agent.stream: true`, AgentSec sends `"stream": true` and expects OpenAI-style `data: {chunk}` lines ending with `data: [DONE]`. Tool-call fragments are joined by `index`; `usage` and `x_agentsec` (`cost_usd`, `events`) may arrive in any chunk. The RAG reference agent streams when asked.
 
 ## The reference agents
 

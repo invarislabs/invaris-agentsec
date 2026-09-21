@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 80 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 111 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -66,7 +66,7 @@ Findings are deterministic against the reference agent, so these numbers are sta
 ## Run AgentSec in CI
 
 A GitHub Actions workflow that starts the agent and fails the build on high or critical findings looks like this. When it runs in Actions, `agentsec test`
-also writes an annotation for each finding and a job summary, with no extra flags. A packaged, reusable action is still planned.
+also writes an annotation for each finding and a job summary, with no extra flags. A packaged, reusable action is described in [GitHub Actions](github-actions.md).
 
 ```yaml
 name: agent-security
