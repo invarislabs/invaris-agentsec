@@ -35,6 +35,10 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_replay.py` | Replay reproduces against the same agent, reports NOT REPRODUCED against a hardened one, honours the recorded seed, finding and scenario filters, CLI exit codes |
 | `tests/test_judge.py` | Verdict parsing, model-assisted labelling and confidence, skipping already-flagged scenarios, secret masking and prompt hardening, failed judge calls, policy validation, and `--judge` over HTTP against a stub |
 | `tests/test_rag_example.py` | The RAG reference agent: retrieval ranking, the example policy, the vulnerable agent caught through server-side `x_agentsec` events (critical `send_email` findings from the poisoned document, restricted runbook content and the system-prompt key leaking), the safe agent passing with only `search_documents` in its outbox, the `/outbox` endpoint, and secret masking |
+| `tests/test_action_scripts.py` | The GitHub Action's helper scripts run for real against the reference agents (full cycle, safe agent, unreachable agent, bad policy, early exit, timeout, process-tree kill) and structural checks of `action.yml` and the CI workflow (inputs used and declared, no inputs interpolated into scripts, output names) |
+| `tests/test_compare.py` | `agentsec compare`: new, fixed, unchanged and severity changes, missing or errored scenarios never counted as fixed, seed and policy warnings, CLI exit codes |
+| `tests/test_streaming_and_callable.py` | SSE parsing (text, fragmented tool calls, usage, `x_agentsec` events, malformed streams), the `stream` policy option, the RAG agent streaming with findings identical to non-streaming, and `CallableAdapter` return shapes, crashes and use through the Python API |
+| `tests/test_mcp.py` | MCP checks (poisoning, schema injection, invisible characters, shadowing, policy rules, near misses that must stay clean), pins and rug pulls, stdio and HTTP transports (pagination, sessions, SSE, errors), the `mcp scan` CLI, and terminal sanitising |
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 
 The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in all 8 categories,
@@ -97,4 +101,5 @@ When you add a scenario, evaluator or adapter behaviour:
 - Cover the evaluator with a hand-built trace in `tests/test_evaluators.py`, both a case that must be flagged and a near miss that must not.
 - If the reference agent should fail the new scenario, extend it in `examples/vulnerable_rag_agent/server.py` and extend its safe mode so the safe agent still passes. `test_end_to_end.py` will tell you if either side breaks.
 - Update the scenario count assertions (`34`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
+- Not yet verified: the GitHub Action workflow on real GitHub Actions, and MCP scanning against real-world MCP servers.
 - Custom adapters in tests must accept the `session` keyword: `def chat(self, messages, tools, session=None)`.

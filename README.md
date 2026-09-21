@@ -144,6 +144,10 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **A RAG-style agent.** `examples/rag_agent` owns a small document corpus and runs its tools itself, reporting the calls to AgentSec. Start it with `python examples/rag_agent/server.py` (add `--safe` for the hardened variant) and test it with `agentsec test -p examples/rag_agent/agentsec.yaml`. See [`docs/agent-contract.md`](docs/agent-contract.md#the-rag-backed-reference-agent).
 
+**Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions.
+
+**MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools (never calls them) and flags poisoned descriptions, hidden characters, shadowing and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
+
 **Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
 
@@ -159,7 +163,7 @@ server-side can report them in an `x_agentsec.events` field, and agents with mem
 under `secrets:` so leaks are detected.
 
 **In CI.** Inside GitHub Actions, `agentsec test` adds workflow annotations for each finding and
-writes a job summary automatically. See [`docs/testing.md`](docs/testing.md#run-agentsec-in-ci).
+writes a job summary automatically. A packaged action (`uses: ./`) starts your agent, runs the suite, uploads reports and gates the job; see [`docs/github-actions.md`](docs/github-actions.md).
 
 Full documentation, including architecture, policy reference, attack catalog, Python API, testing
 and extension guides, is in [`docs/`](docs/README.md).
@@ -224,17 +228,20 @@ flowchart TD
 ```text
 agentsec/
 ├── attacks/          # Prompt, retrieval, memory and tool attacks
-├── adapters/         # Agent framework and API integrations (HTTP today)
+├── adapters/         # OpenAI-compatible HTTP (optionally streaming) and in-process callables
+├── mcp/              # MCP server scanner: client, tool-definition checks, pins
 ├── evaluators/       # Deterministic checks plus an optional model-assisted judge
 ├── policies/         # Permissions, limits and expected behaviour
 ├── runners/          # Local runner and replay (CI and sandboxed planned)
 ├── traces/           # Normalized agent execution events
 ├── reports/          # Terminal, JSON, HTML, Markdown and GitHub output
 ├── cli/              # Command-line interface
+├── compare.py        # Report-to-report regression comparison
 ├── owasp.py          # Mapping of findings to OWASP agentic categories
 ├── api.py            # Python API (AgentTarget, SecuritySuite)
 └── pytest_plugin.py  # pytest fixtures
-examples/             # Vulnerable reference agents (rule-based and RAG-backed)
+action.yml, action/   # Packaged GitHub Action
+examples/             # Vulnerable reference agents (rule-based, RAG-backed) and a demo MCP server
 tests/                # Unit and end-to-end tests
 ```
 
