@@ -23,6 +23,17 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest
 
+  # The LangChain/LangGraph integration tests need the framework, so they run in their own job.
+  integrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,langchain]"
+      - run: pytest tests/test_langchain_integration.py -W ignore
+
   # The hardened reference agent must pass, and the action must exit 0.
   agentsec-passes-on-safe-agent:
     runs-on: ubuntu-latest

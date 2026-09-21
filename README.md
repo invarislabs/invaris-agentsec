@@ -6,7 +6,7 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development. Phase 1 (the local testing engine) and Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks, the GitHub Action) are complete, and Phase 3 is partly done (regression comparison, streaming, MCP server scanning); the rest is planned and may evolve. The first PyPI release is being prepared. Interfaces marked as provisional may still change.
+> **Project status:** Early development. Phase 1 (the local testing engine) and Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks, the GitHub Action) and Phase 3 (regression comparison, streaming, MCP scanning and MCP-based agent testing, LangChain and LangGraph support) are complete. Phases 4 and 5 are planned and may evolve. The first PyPI release is being prepared. Interfaces marked as provisional may still change.
 
 ## Why AgentSec?
 
@@ -150,6 +150,8 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools (never calls them) and flags poisoned descriptions, hidden characters, shadowing and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
 
+**MCP-connected agents.** `agentsec test --mcp-listen 127.0.0.1:8765` makes AgentSec the MCP server your agent uses, delivering the same adversarial scenarios through MCP tool results. **LangChain and LangGraph agents** can be tested in-process with `LangChainAdapter`; see [`docs/frameworks.md`](docs/frameworks.md).
+
 **Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
 
@@ -231,7 +233,8 @@ flowchart TD
 agentsec/
 ├── attacks/          # Prompt, retrieval, memory and tool attacks
 ├── adapters/         # OpenAI-compatible HTTP (optionally streaming) and in-process callables
-├── mcp/              # MCP server scanner: client, tool-definition checks, pins
+├── mcp/              # MCP server scanner (client, checks, pins) and the MCP attack host
+├── integrations/     # LangChain and LangGraph adapter
 ├── evaluators/       # Deterministic checks plus an optional model-assisted judge
 ├── policies/         # Permissions, limits and expected behaviour
 ├── runners/          # Local runner and replay (CI and sandboxed planned)
@@ -303,8 +306,8 @@ Turns the local engine into something teams can drop into a pipeline.
 ### Phase 3 - Framework and protocol coverage
 
 - [x] Scan MCP servers for poisoned tool definitions and rug pulls (`agentsec mcp scan`; see docs/mcp-testing.md)
-- [ ] Test agents that use MCP servers end to end (MCP client-side scenarios)
-- [ ] Support popular agent frameworks (a generic `CallableAdapter` for in-process agents exists; no framework-specific integrations yet)
+- [x] Test agents that use MCP servers (`agentsec test --mcp-listen`: AgentSec acts as the MCP server; see docs/mcp-testing.md)
+- [x] Support popular agent frameworks: `LangChainAdapter` for LangChain and LangGraph, and a generic `CallableAdapter` for anything else (see docs/frameworks.md; other frameworks have no dedicated adapter)
 - [x] Add regression comparison between runs (`agentsec compare`)
 - [x] Support agents that execute tools server-side and stream their replies (server-sent events, `agent.stream: true`)
 

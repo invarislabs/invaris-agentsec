@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 138 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 144 tests (149 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -39,6 +39,8 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_compare.py` | `agentsec compare`: new, fixed, unchanged and severity changes, missing or errored scenarios never counted as fixed, seed and policy warnings, CLI exit codes |
 | `tests/test_streaming_and_callable.py` | SSE parsing (text, fragmented tool calls, usage, `x_agentsec` events, malformed streams), the `stream` policy option, the RAG agent streaming with findings identical to non-streaming, and `CallableAdapter` return shapes, crashes and use through the Python API |
 | `tests/test_mcp.py` | MCP checks (poisoning, schema injection, invisible characters, shadowing, policy rules, near misses that must stay clean), pins and rug pulls, stdio and HTTP transports (pagination, sessions, SSE, errors), the `mcp scan` CLI, and terminal sanitising |
+| `tests/test_mcp_host.py` | AgentSec as the MCP server: protocol and recording, the vulnerable MCP-connected reference agent caught (critical findings, tool-call budget), the safe one passing every scenario, no tools declared in requests, and the `--mcp-listen` CLI (bad value, busy port) |
+| `tests/test_langchain_integration.py` | `LangChainAdapter` against real LangGraph agents (needs `pip install -e ".[langchain]"`; skipped otherwise) |
 | `tests/test_packaging.py` | Package version agrees with `pyproject.toml` and the changelog, required project files exist, license metadata, schemas declared as package data, release workflow is valid and tests before publishing |
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 
@@ -102,5 +104,5 @@ When you add a scenario, evaluator or adapter behaviour:
 - Cover the evaluator with a hand-built trace in `tests/test_evaluators.py`, both a case that must be flagged and a near miss that must not.
 - If the reference agent should fail the new scenario, extend it in `examples/vulnerable_rag_agent/server.py` and extend its safe mode so the safe agent still passes. `test_end_to_end.py` will tell you if either side breaks.
 - Update the scenario count assertions (`34`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
-- Not yet verified: the GitHub Action workflow on real GitHub Actions, and MCP scanning against real-world MCP servers.
+- Not yet verified: the GitHub Action and `integrations` workflows on real GitHub Actions, real LLM-backed LangChain agents, MCP scanning against real-world MCP servers, and `--mcp-listen` against real MCP-capable agents.
 - Custom adapters in tests must accept the `session` keyword: `def chat(self, messages, tools, session=None)`.

@@ -144,8 +144,9 @@ class RunResult:
 
 class SecuritySuite:
     def __init__(self, target: AgentTarget, seed: int = 0, adapter: Optional[AgentAdapter] = None,
-                 judge: bool = False):
+                 judge: bool = False, mcp_host: Optional[Any] = None):
         self.target = target
+        self.mcp_host = mcp_host
         self.seed = seed
         self.adapter = adapter or HTTPAgentAdapter(target.policy.agent)
         self.judge = judge
@@ -163,5 +164,6 @@ class SecuritySuite:
         else:
             categories = list(CATEGORIES)
         suite = run_suite(self.target.policy, self.adapter, seed=self.seed if seed is None else seed,
-                          only=names_l or None, categories=categories, judge=self.judge)
+                          only=names_l or None, categories=categories, judge=self.judge,
+                          host=self.mcp_host)
         return RunResult(suite)

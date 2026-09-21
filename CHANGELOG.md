@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## 0.4.0
+
+- `agentsec test --mcp-listen HOST:PORT`: AgentSec runs as the MCP server your agent connects to, serves the policy's tools and delivers the scenarios' adversarial content through MCP tool results. Calls the agent makes are recorded and evaluated like any other. Includes an MCP-connected reference agent (`examples/mcp_agent`).
+- `LangChainAdapter` for LangChain and LangGraph agents (`agentsec.integrations`), tested against real LangGraph agents.
+- The tool-call budget is now also checked for agents that run their own tool loop (through MCP or reported events).
+
 ## 0.3.0
 
 - Packaged, reusable GitHub Action (`action.yml`) that starts your agent, runs the suite, uploads reports and gates the job.

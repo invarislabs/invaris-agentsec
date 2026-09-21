@@ -31,8 +31,9 @@ history is resent on every step. That keeps runs independent and makes any scena
 | `agentsec/policies` | Policy dataclasses, YAML loader with strict validation, JSON Schema |
 | `agentsec/traces` | Normalized trace and event types, JSON Schema |
 | `agentsec/adapters` | `AgentAdapter` interface, the OpenAI-compatible `HTTPAgentAdapter` (plain or streaming) and `CallableAdapter` for in-process agents |
+| `agentsec/integrations` | `LangChainAdapter` for LangChain and LangGraph agents (duck-typed, imports no framework) |
 | `agentsec/compare.py` | Diffs two reports by finding id for `agentsec compare` |
-| `agentsec/mcp` | MCP client (stdio and HTTP, lists tools only), static checks on tool definitions, pinning, and the MCP report |
+| `agentsec/mcp` | MCP client (stdio and HTTP, lists tools only), static checks on tool definitions, pinning, the MCP report, and `host.py`, the MCP attack host that lets AgentSec act as the MCP server an agent connects to |
 | `agentsec/attacks` | Scenario definition, category registry, one module per category |
 | `agentsec/runners` | Drives a scenario (including multi-session ones), simulates tools, enforces limits, records the trace. `replay.py` re-runs findings from a report |
 | `agentsec/evaluators` | Deterministic checks that turn traces into findings, plus the optional model-assisted `judge.py` |
@@ -43,6 +44,7 @@ history is resent on every step. That keeps runs independent and makes any scena
 | `agentsec/cli` | The `agentsec` command |
 | `action.yml`, `action/` | The packaged GitHub Action and its helper scripts |
 | `examples/vulnerable_rag_agent`, `examples/rag_agent` | Reference agents used for demos and end-to-end tests |
+| `examples/mcp_agent` | Reference agent that uses its tools through the AgentSec MCP host |
 | `examples/mcp_servers` | Demo MCP server with clean, poisoned and rug-pull modes |
 
 ## How adversarial content reaches the agent
@@ -158,6 +160,6 @@ depend on another model's judgment.
 - Deterministic evaluators do not catch a paraphrased leak of restricted content unless it contains the canary or a configured secret.
   The optional judge is meant to cover that gap, with the uncertainty of any model.
 - Adapters exist for OpenAI-compatible HTTP (optionally streaming) and in-process Python functions; there are no framework-specific adapters. Scenarios run sequentially.
-- MCP support covers static scanning of a server's tool definitions. AgentSec does not yet run attack scenarios against an agent through MCP.
+- MCP support covers static scanning of a server's tool definitions and an attack host (`--mcp-listen`) that delivers scenarios to an agent over streamable HTTP. It does not speak stdio, and the agent's tool loop cannot be interrupted mid-run.
 - Categories that rely on simulated tool output (tool-output poisoning, loops) need an agent that calls tools through the API. They cannot fire against an agent
   that runs its own retrieval server-side.

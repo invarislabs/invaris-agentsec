@@ -1,6 +1,6 @@
 # Invaris AgentSec documentation
 
-These docs describe what is built today: the Phase 1 local testing engine, Phase 2, and the first parts of Phase 3 (regression comparison, streaming, MCP server scanning). Planned work is in the
+These docs describe what is built today: the Phase 1 local testing engine, Phase 2, and Phase 3 (regression comparison, streaming, MCP scanning and MCP-based agent testing, LangChain/LangGraph support). Planned work is in the
 [roadmap](../README.md#roadmap) and is not described here.
 
 | Document | Read it to... |
@@ -15,7 +15,8 @@ These docs describe what is built today: the Phase 1 local testing engine, Phase
 | [Judge (model-assisted checks)](judge.md) | Enable the optional judge model, and understand what it sends and reports |
 | [Python API and pytest](python-api-and-pytest.md) | Run scenarios from code and from pytest |
 | [Testing](testing.md) | Run the test suite, verify the engine by hand, add AgentSec to CI |
-| [MCP server scanning](mcp-testing.md) | Scan an MCP server's tool definitions for poisoning, shadowing and rug pulls |
+| [MCP testing](mcp-testing.md) | Scan an MCP server's tool definitions, or test an agent that uses MCP with `--mcp-listen` |
+| [Frameworks](frameworks.md) | Test LangChain/LangGraph agents and other in-process agents |
 | [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
 
@@ -35,11 +36,11 @@ rules cannot see, and its findings are labelled as model-assisted.
 - 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
 - Terminal, JSON, HTML and Markdown reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
-- `agentsec mcp scan` to check MCP server tool definitions (static, never calls tools).
+- `agentsec mcp scan` to check MCP server tool definitions (static, never calls tools), and `agentsec test --mcp-listen` to test an agent that uses MCP.
 - `agentsec compare` to diff two reports and flag regressions.
 - A Python API and a pytest plugin.
 - An opt-in model-assisted judge, never critical and always labelled.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
-- Adapters: OpenAI-compatible HTTP (optionally streaming) and an in-process `CallableAdapter`.
+- Adapters: OpenAI-compatible HTTP (optionally streaming) an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
 - Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
 - 80 automated tests.

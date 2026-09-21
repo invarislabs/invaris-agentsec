@@ -73,10 +73,14 @@ def _is_scenario_tool(policy: Policy, name: str) -> bool:
 
 
 def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
-                 clock: Callable[[], float] = time.monotonic, run_id: str = "") -> Trace:
+                 clock: Callable[[], float] = time.monotonic, run_id: str = "", host: Any = None) -> Trace:
     """Run a scenario. Multi-session scenarios run each follow-up as a fresh
     conversation, in the same simulated-user session unless the follow-up says otherwise.
-    Step and tool-call limits apply per conversation."""
+    Step and tool-call limits apply per conversation.
+
+    With a `host` (an MCP attack host, see agentsec.mcp.host) the agent uses its own tools through
+    MCP servers that AgentSec runs. No tools are declared in the request; the calls the agent makes
+    to the host are recorded as tool calls executed by the agent."""
     lim = policy.limits
     trace = Trace(scenario_id=scenario.id)
     start = clock()
@@ -96,7 +100,9 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
         trace.outcome, trace.limit = "limit_exceeded", limit
         add("limit", phase, content=detail, meta={"limit": limit})
 
-    tools = declared_tools(policy) if policy.agent.declare_tools else []
+    tools = declared_tools(policy) if (policy.agent.declare_tools and host is None) else []
+    if host is not None:
+        host.reset()
     conversations = [(scenario.user_message, scenario.responder, base_session)]
     for i, f in enumerate(scenario.followups):
         conversations.append((f.user_message, f.responder,
@@ -108,6 +114,8 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
         add("user_message", phase, content=user_message)
         steps = calls = 0
         halted = False
+        if host is not None:
+            host.begin(responder, lambda n: _is_scenario_tool(policy, n))
         while True:
             if steps >= lim.max_steps:
                 stop("max_steps", "agent still running after %d steps" % lim.max_steps, phase)
@@ -137,6 +145,8 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
                     reply.prompt_tokens / 1000 * p.input_per_1k
                     + reply.completion_tokens / 1000 * p.output_per_1k)
 
+            if host is not None:
+                reply.executed = list(reply.executed) + host.drain()
             add("assistant_message", phase, content=reply.content or "")
             # Calls the agent executed itself and reported: record them as observed.
             for ev in reply.executed:
@@ -146,6 +156,15 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
                 if ev.get("result") is not None:
                     add("tool_result", phase, tool_name=ev["name"], content=str(ev["result"]),
                         meta={"executed_by_agent": True})
+
+            if host is not None and reply.executed:
+                # The agent ran its tool loop itself, so the budget can only be checked afterwards.
+                calls += len(reply.executed)
+                if calls > lim.max_tool_calls:
+                    stop("max_tool_calls", "agent made %d tool calls through MCP (budget %d)"
+                         % (calls, lim.max_tool_calls), phase)
+                    halted = True
+                    break
 
             if not reply.tool_calls:
                 break
@@ -191,7 +210,7 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
               only: Optional[List[str]] = None,
               progress: Optional[Callable[[Scenario], None]] = None,
               categories: Optional[List[str]] = None, judge: bool = False,
-              judge_adapter: Optional[AgentAdapter] = None) -> SuiteResult:
+              judge_adapter: Optional[AgentAdapter] = None, host: Any = None) -> SuiteResult:
     """Run the scenarios. With judge=True the policy's `judge:` model reviews scenarios the
     deterministic evaluators passed (advisory, clearly labelled model-assisted)."""
     evaluator: Optional[JudgeEvaluator] = None
@@ -205,7 +224,7 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
     for sc in scenarios:
         if progress:
             progress(sc)
-        trace = run_scenario(sc, policy, adapter, run_id=run_id)
+        trace = run_scenario(sc, policy, adapter, run_id=run_id, host=host)
         findings = evaluate_trace(sc, trace, policy, evaluator) if trace.outcome != "error" else []
         results.append(ScenarioResult(sc, trace, findings))
     if evaluator is not None and evaluator.errors:
