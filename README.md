@@ -55,6 +55,8 @@ Install the command-line tool:
 pip install invaris-agentsec
 ```
 
+The package is not on PyPI yet. Until the first release, install from a clone with `pip install -e .`.
+
 Create an `agentsec.yaml` policy:
 
 ```yaml
@@ -356,7 +358,7 @@ AgentSec executes potentially adversarial content against systems that may have 
 - use sandboxed or mocked tools;
 - enforce strict spending and execution limits; and
 - never point experimental tests at production agents.
-A detailed threat model and responsible-disclosure policy will be published before the first public release.
+A detailed threat model will be published before the first public release. The vulnerability-reporting policy is in [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
@@ -369,11 +371,11 @@ The project is in early development. Contributions will be welcomed in areas suc
 - Trace schemas and interoperability
 - Sandboxing and safe execution
 - Documentation and vulnerable examples
-To develop locally, run `pip install -e ".[dev]"` and then `pytest`. Formal contribution guidelines will be added before the first public release.
+To develop locally, run `pip install -e ".[dev]"` and then `pytest`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the guidelines.
 
 ## Responsible Disclosure
 
-If AgentSec identifies a vulnerability in a third-party agent, framework, or integration, do not publish sensitive details immediately. Contact the affected maintainer and allow reasonable time for remediation. A formal disclosure process will be added before public security research begins.
+If AgentSec identifies a vulnerability in a third-party agent, framework, or integration, do not publish sensitive details immediately. Contact the affected maintainer and allow reasonable time for remediation. To report a vulnerability in AgentSec itself, see [SECURITY.md](SECURITY.md).
 
 ## License
 

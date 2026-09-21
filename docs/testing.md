@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 133 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 138 tests should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -39,6 +39,7 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_compare.py` | `agentsec compare`: new, fixed, unchanged and severity changes, missing or errored scenarios never counted as fixed, seed and policy warnings, CLI exit codes |
 | `tests/test_streaming_and_callable.py` | SSE parsing (text, fragmented tool calls, usage, `x_agentsec` events, malformed streams), the `stream` policy option, the RAG agent streaming with findings identical to non-streaming, and `CallableAdapter` return shapes, crashes and use through the Python API |
 | `tests/test_mcp.py` | MCP checks (poisoning, schema injection, invisible characters, shadowing, policy rules, near misses that must stay clean), pins and rug pulls, stdio and HTTP transports (pagination, sessions, SSE, errors), the `mcp scan` CLI, and terminal sanitising |
+| `tests/test_packaging.py` | Package version agrees with `pyproject.toml` and the changelog, required project files exist, license metadata, schemas declared as package data, release workflow is valid and tests before publishing |
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 
 The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in all 8 categories,
