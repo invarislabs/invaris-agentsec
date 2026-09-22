@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..runners import SuiteResult
 from .html_report import render_html
@@ -15,9 +15,10 @@ _FILES = {"json": "report.json", "html": "report.html", "markdown": "summary.md"
 
 
 def write_reports(suite: SuiteResult, out_dir: str,
-                  formats: Sequence[str] = ("json", "html")) -> Tuple[Dict[str, Any], List[str]]:
+                  formats: Sequence[str] = ("json", "html"),
+                  policy_path: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
     """Write the requested report files. Returns (report dict, [paths written])."""
-    report = build_report(suite)
+    report = build_report(suite, policy_path)
     os.makedirs(out_dir, exist_ok=True)
     paths: List[str] = []
     for fmt in formats:
