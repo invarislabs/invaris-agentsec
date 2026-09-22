@@ -39,7 +39,12 @@ jobs:
           artifact-name: verify-pr-comment-baseline
 
       - name: Compared run (vulnerable agent), posts/updates the PR comment
+        id: compared
         uses: ./
+        continue-on-error: true   # the vulnerable agent is *meant* to fail agentsec test (fail-on
+                                   # defaults to "low"); that expected exit 1 isn't a verification
+                                   # failure, so don't let it fail this job -- the point of this
+                                   # workflow is only whether the PR comment below got posted.
         with:
           policy: examples/vulnerable_rag_agent/agentsec.yaml
           start-command: python examples/vulnerable_rag_agent/server.py --port 8000
@@ -48,3 +53,10 @@ jobs:
           compare-fail-on: none
           comment-marker: verify-pr-comment
           artifact-name: verify-pr-comment-head
+
+      - name: Report verification outcome
+        if: always()
+        run: |
+          echo "AgentSec exit code (expected 1, findings against the vulnerable agent): ${{ steps.compared.outputs.exit-code }}"
+          echo "Compare exit code (expected 1, new findings vs. the safe baseline): ${{ steps.compared.outputs.compare-exit-code }}"
+          echo "If a new or updated 'AgentSec regression comparison' comment appeared on this PR, the pull-request comment path is verified."
