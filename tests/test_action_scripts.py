@@ -273,6 +273,24 @@ def install_fake_gh(bindir):
     return path
 
 
+def path_without_gh(tmp_path):
+    """A PATH with only bash and python3 on it (symlinked from wherever they really live), and no gh.
+
+    A GitHub-hosted runner has gh preinstalled, so merely prepending an empty directory to the real
+    PATH does not hide it. Build PATH from scratch instead, so the "no gh" case is reproducible
+    locally and in CI alike.
+    """
+    bindir = tmp_path / "no_gh_bin"
+    bindir.mkdir(exist_ok=True)
+    for name in ("bash", "sh", "python3"):
+        real = shutil.which(name)
+        if real:
+            link = bindir / name
+            if not link.exists():
+                link.symlink_to(real)
+    return str(bindir)
+
+
 def pr_env(workdir, bindir, event, **extra):
     event_path = workdir / "event.json"
     event_path.write_text(json.dumps({"pull_request": {"number": 42}}) if event.startswith("pull_request") else "{}")
@@ -297,12 +315,10 @@ def test_pr_comment_skips_on_non_pull_request_events(workdir):
 def test_pr_comment_skips_without_gh_or_token(workdir, tmp_path):
     summary = workdir / "summary.txt"
     summary.write_text("hello")
-    empty_bin = tmp_path / "emptybin"
-    empty_bin.mkdir()
     env = env_for(workdir, SUMMARY_PATH=str(summary), GITHUB_EVENT_NAME="pull_request",
                  GITHUB_EVENT_PATH=str(workdir / "event.json"))
     (workdir / "event.json").write_text(json.dumps({"pull_request": {"number": 1}}))
-    env["PATH"] = str(empty_bin) + os.pathsep + env["PATH"]  # dir with no gh, but bash still resolvable
+    env["PATH"] = path_without_gh(tmp_path)  # no gh reachable, but bash and python3 still resolvable
     res = sh("pr-comment.sh", env, workdir)
     assert res.returncode == 0 and "gh CLI is not available" in res.stdout
 
