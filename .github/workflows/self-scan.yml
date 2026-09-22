@@ -28,6 +28,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Note about these findings
+        run: |
+          {
+            echo "> **Note:** the findings this workflow publishes come from scanning this repo's own"
+            echo "> bundled *intentionally vulnerable* reference agent (\`examples/vulnerable_rag_agent/\`),"
+            echo "> which exists to demonstrate what AgentSec catches. They are demo findings, not"
+            echo "> vulnerabilities in AgentSec itself or in the packaged GitHub Action."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run AgentSec against the bundled vulnerable example, via the public Action
         id: agentsec
         uses: invarislabs/invaris-agentsec@main   # the real path an outside user takes, not `uses: ./`
