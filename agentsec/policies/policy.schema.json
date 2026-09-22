@@ -136,6 +136,14 @@
         "minLength": 1
       }
     },
+    "attack_packs": {
+      "type": "array",
+      "description": "Local plugin modules (file paths or importable module names) exposing extra scenario categories. See docs/extending.md#write-an-attack-pack.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "judge": {
       "type": "object",
       "required": [

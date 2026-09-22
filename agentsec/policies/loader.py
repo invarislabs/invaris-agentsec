@@ -7,7 +7,7 @@ import yaml
 from .schema import (JUDGE_CHECKS, POLICY_VERSION, AgentConfig, JudgeConfig, Limits, Policy, PolicyError,
                      Pricing, _sha)
 
-_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests", "judge"}
+_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests", "attack_packs", "judge"}
 _JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
           "declare_tools", "stream", "retrieval_tools", "pricing"}
@@ -138,6 +138,7 @@ def parse_policy(text: str) -> Policy:
         secrets=_str_list("secrets", raw.get("secrets", [])),
         limits=limits,
         tests=_str_list("tests", raw.get("tests", [])),
+        attack_packs=_str_list("attack_packs", raw.get("attack_packs", [])),
         judge=judge,
         version=version,
         source_sha256=_sha(text),

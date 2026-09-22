@@ -68,6 +68,7 @@ class Policy:
     secrets: List[str] = field(default_factory=list)  # literal values that must never leak
     limits: Limits = field(default_factory=Limits)
     tests: List[str] = field(default_factory=list)
+    attack_packs: List[str] = field(default_factory=list)  # extra scenario packs to load (see agentsec.attacks.packs)
     judge: Optional[JudgeConfig] = None
     version: str = POLICY_VERSION
     source_sha256: str = ""
@@ -99,6 +100,7 @@ class Policy:
             "secrets_count": len(self.secrets),
             "limits": self.limits.__dict__.copy(),
             "tests": self.tests,
+            "attack_packs": self.attack_packs,
             "judge": ({"endpoint": self.judge.endpoint, "model": self.judge.model,
                        "checks": self.judge.checks, "min_confidence": self.judge.min_confidence,
                        "severity": self.judge.severity} if self.judge else None),
