@@ -147,6 +147,12 @@ SARIF is additive: it changes nothing about the other formats, `compare-report.s
 
 This repo runs exactly this setup on itself: see `.github/workflows/self-scan.yml` for a complete, working example, and its [findings](https://github.com/invarislabs/invaris-agentsec/security/code-scanning) for what the result looks like.
 
+> **Note:** those findings are demo findings. They come from scanning this repo's own bundled
+> *intentionally vulnerable* reference agent (`examples/vulnerable_rag_agent/`), which exists to give
+> AgentSec something real to catch. They are not vulnerabilities in AgentSec itself or in the packaged
+> GitHub Action -- they're the expected, intended output of running AgentSec against a target that was
+> built to fail every check.
+
 ## How it works
 
 Logic lives in scripts under `action/` (`start-agent.sh`, `run-agentsec.sh`, `stop-agent.sh`,
@@ -167,7 +173,13 @@ the way an outside project actually would (`uses: invarislabs/invaris-agentsec@m
 that `ci.yml` uses to test the Action's own code from inside this repo), against the bundled vulnerable
 reference agent, and uploads the SARIF output to this repo's own **Security > Code Scanning** tab. Its
 latest run is under the [Actions tab](https://github.com/invarislabs/invaris-agentsec/actions/workflows/self-scan.yml),
-and the findings it reports are visible under [Security > Code scanning](https://github.com/invarislabs/invaris-agentsec/security/code-scanning) --
-both are the live proof that the packaged Action and the SARIF/Code Scanning path work end to end for a
-real, external consumer of the Action, not just inside this repo's own test suite. A real posted or updated
-pull-request comment from `baseline-report` is the one piece still unverified on real GitHub Actions.
+and the findings it reports are visible under [Security > Code scanning](https://github.com/invarislabs/invaris-agentsec/security/code-scanning)
+(demo findings from the intentionally vulnerable reference agent, not real AgentSec vulnerabilities --
+see the note above) -- both are the live proof that the packaged Action and the SARIF/Code Scanning path
+work end to end for a real, external consumer of the Action, not just inside this repo's own test suite.
+A real posted or updated pull-request comment from `baseline-report` is verified the same way, on demand:
+`.github/workflows/verify-pr-comment.yml` runs only on a PR carrying the `verify-pr-comment` label (so it
+never fires on ordinary PRs, unlike `ci.yml`'s baseline-comparison job, which deliberately sets
+`pr-comment: "false"` to avoid commenting on every real PR against this repo) and posts a real comment
+using a real `pull_request` event, a real `GITHUB_TOKEN`, and the real `gh` CLI -- exactly the path
+`tests/test_action_scripts.py` cannot exercise with its fake `gh` binary.
