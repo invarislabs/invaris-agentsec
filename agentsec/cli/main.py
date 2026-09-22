@@ -98,7 +98,7 @@ def _cmd_test(args: argparse.Namespace) -> int:
     finally:
         if host is not None:
             host.stop()
-    report, paths = write_reports(suite, args.out, formats)
+    report, paths = write_reports(suite, args.out, formats, policy_path=args.policy)
     print(render_terminal(suite, report_path=paths, color=sys.stdout.isatty(), verbose=args.verbose))
     if in_github_actions():
         for line in annotations(report):
@@ -141,7 +141,7 @@ def _cmd_replay(args: argparse.Namespace) -> int:
         len(result.reproduced), sum(o.status == "not_reproduced" for o in result.outcomes),
         len(result.new_findings), len(result.errors)))
     if result.suite is not None:
-        _, paths = write_reports(result.suite, args.out, ["json"])
+        _, paths = write_reports(result.suite, args.out, ["json"], policy_path=args.policy)
         print("Report written to %s" % paths[0])
     if result.errors:
         return EXIT_ERROR
