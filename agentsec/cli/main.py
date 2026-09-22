@@ -71,6 +71,12 @@ def _cmd_test(args: argparse.Namespace) -> int:
     if args.verbose:
         progress = lambda sc: print("running %s" % sc.id, file=sys.stderr)
     formats = _parse_formats(args.format)
+    extra_packs = None
+    if args.attack_pack:
+        from ..attacks import CATEGORIES
+        from ..attacks.packs import load_packs
+        extra_packs = load_packs(args.attack_pack, CATEGORIES)
+
     host = None
     if args.mcp_listen:
         from ..mcp import MCPAttackHost
@@ -88,7 +94,7 @@ def _cmd_test(args: argparse.Namespace) -> int:
               file=sys.stderr)
     try:
         suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress, judge=args.judge,
-                          host=host)
+                          host=host, attack_packs=extra_packs)
     finally:
         if host is not None:
             host.stop()
@@ -232,13 +238,16 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--policy", "-p", default="agentsec.yaml")
     t.add_argument("--out", "-o", default=".agentsec", help="report directory (default .agentsec)")
     t.add_argument("--format", "-f", default="json,html",
-                   help="report formats, comma-separated: json, html, markdown (default json,html)")
+                   help="report formats, comma-separated: json, html, markdown, sarif (default json,html)")
     t.add_argument("--seed", type=int, default=0, help="seed for canaries/markers; same seed = same scenarios")
     t.add_argument("--scenario", "-s", action="append", help="only run this category or scenario id (repeatable)")
     t.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low",
                    help="exit 1 if a finding at or above this severity exists (default low = any)")
     t.add_argument("--judge", action="store_true",
                    help="also run the model-assisted evaluators configured under `judge:` in the policy")
+    t.add_argument("--attack-pack", "-A", action="append", metavar="PATH_OR_MODULE",
+                   help="load extra scenario categories from a local .py file or an installed package "
+                        "(repeatable). See docs/extending.md#write-an-attack-pack")
     t.add_argument("--mcp-listen", metavar="HOST:PORT",
                    help="run AgentSec as the MCP server your agent connects to (streamable HTTP at /mcp); "
                         "tools come from the policy and tool results carry the adversarial content")

@@ -39,7 +39,7 @@ class AgentTarget:
                  pricing: Optional[Pricing] = None, max_steps: int = 12, max_tool_calls: int = 10,
                  max_repeated_calls: int = 3, max_tokens: Optional[int] = None,
                  max_seconds: Optional[float] = None, max_cost_usd: Optional[float] = None,
-                 judge: Optional[Any] = None):
+                 judge: Optional[Any] = None, attack_packs: Iterable[str] = ()):
         if not endpoint.startswith(("http://", "https://")):
             raise PolicyError("endpoint must start with http:// or https://")
         agent = AgentConfig(
@@ -53,7 +53,7 @@ class AgentTarget:
             limits=Limits(max_steps=max_steps, max_tool_calls=max_tool_calls,
                           max_repeated_calls=max_repeated_calls, max_tokens=max_tokens,
                           max_seconds=max_seconds, max_cost_usd=max_cost_usd),
-            judge=judge)
+            judge=judge, attack_packs=list(attack_packs))
         self.policy.source_sha256 = _sha(json.dumps(self.policy.to_report_dict(), sort_keys=True))
 
     @classmethod
@@ -144,26 +144,36 @@ class RunResult:
 
 class SecuritySuite:
     def __init__(self, target: AgentTarget, seed: int = 0, adapter: Optional[AgentAdapter] = None,
-                 judge: bool = False, mcp_host: Optional[Any] = None):
+                 judge: bool = False, mcp_host: Optional[Any] = None,
+                 attack_packs: Optional[Dict[str, Any]] = None):
         self.target = target
         self.mcp_host = mcp_host
+        self.attack_packs = attack_packs
         self.seed = seed
         self.adapter = adapter or HTTPAgentAdapter(target.policy.agent)
         self.judge = judge
 
     def run(self, *names: str, seed: Optional[int] = None) -> RunResult:
-        """Run categories and/or scenario ids. With no names, every category runs."""
+        """Run categories and/or scenario ids. With no names, every category (built-in plus any
+        attack packs from the policy or from `SecuritySuite(attack_packs=...)`) runs."""
+        known = dict(CATEGORIES)
+        if self.target.policy.attack_packs or self.attack_packs:
+            from .attacks.packs import load_packs
+            if self.target.policy.attack_packs:
+                known.update(load_packs(self.target.policy.attack_packs, CATEGORIES))
+            if self.attack_packs:
+                known.update(self.attack_packs)
         names_l = list(names)
         if names_l:
             wanted = {n.split("/", 1)[0] for n in names_l}
-            unknown = sorted(wanted - set(CATEGORIES))
+            unknown = sorted(wanted - set(known))
             if unknown:
                 raise PolicyError("unknown test category %r; available: %s"
-                                  % (unknown[0], ", ".join(CATEGORIES)))
-            categories = [c for c in CATEGORIES if c in wanted]
+                                  % (unknown[0], ", ".join(sorted(known))))
+            categories = [c for c in known if c in wanted]
         else:
-            categories = list(CATEGORIES)
+            categories = list(known)
         suite = run_suite(self.target.policy, self.adapter, seed=self.seed if seed is None else seed,
                           only=names_l or None, categories=categories, judge=self.judge,
-                          host=self.mcp_host)
+                          host=self.mcp_host, attack_packs=self.attack_packs)
         return RunResult(suite)

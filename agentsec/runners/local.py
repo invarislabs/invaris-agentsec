@@ -210,15 +210,19 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
               only: Optional[List[str]] = None,
               progress: Optional[Callable[[Scenario], None]] = None,
               categories: Optional[List[str]] = None, judge: bool = False,
-              judge_adapter: Optional[AgentAdapter] = None, host: Any = None) -> SuiteResult:
+              judge_adapter: Optional[AgentAdapter] = None, host: Any = None,
+              attack_packs: Optional[Dict[str, Any]] = None) -> SuiteResult:
     """Run the scenarios. With judge=True the policy's `judge:` model reviews scenarios the
-    deterministic evaluators passed (advisory, clearly labelled model-assisted)."""
+    deterministic evaluators passed (advisory, clearly labelled model-assisted). `attack_packs`
+    (from `agentsec.attacks.packs.load_packs`) adds categories for this run only, on top of any
+    the policy's own `attack_packs:` already loads; see docs/extending.md."""
     evaluator: Optional[JudgeEvaluator] = None
     if judge:
         if policy.judge is None:
             raise PolicyError("--judge needs a `judge:` section in the policy (endpoint, model, ...)")
         evaluator = JudgeEvaluator(policy.judge, judge_adapter)
-    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories)
+    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories,
+                                          extra_categories=attack_packs)
     run_id = uuid.uuid4().hex[:8]  # isolates agent-side memory between runs
     results: List[ScenarioResult] = []
     for sc in scenarios:
