@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: invaris-labs/agentsec@main   # adjust to where you host this repo
+      - uses: invarislabs/invaris-agentsec@main   # adjust to where you host this repo
         with:
           policy: agentsec.yaml
           fail-on: high
@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: main}
-      - uses: invaris-labs/agentsec@main
+      - uses: invarislabs/invaris-agentsec@main
         with:
           start-command: python my_agent/server.py --port 8000
           wait-for-url: http://127.0.0.1:8000/
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4    # the pull request's own ref
-      - uses: invaris-labs/agentsec@main
+      - uses: invarislabs/invaris-agentsec@main
         with:
           start-command: python my_agent/server.py --port 8000
           wait-for-url: http://127.0.0.1:8000/
@@ -129,7 +129,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: invaris-labs/agentsec@main
+      - uses: invarislabs/invaris-agentsec@main
         id: agentsec
         with:
           formats: json,html,markdown,sarif
