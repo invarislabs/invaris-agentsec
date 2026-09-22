@@ -1,0 +1,46 @@
+name: self-scan
+
+# Verifies the real, public path an outside user takes -- fetching the packaged Action from
+# GitHub with `uses: invarislabs/invaris-agentsec@main` -- rather than the `uses: ./` local
+# reference that ci.yml uses to test the Action's own code from inside this repo. It runs
+# AgentSec against the bundled, intentionally vulnerable reference agent and publishes the
+# findings to this repo's own Security > Code Scanning tab, as a live example of what AgentSec
+# catches.
+#
+# fail-on is "none" on purpose: the vulnerable agent is *meant* to have findings (ci.yml's
+# agentsec-fails-on-vulnerable-agent job already checks that AgentSec itself fails correctly on
+# it). This workflow's job is to publish those findings for anyone to see, not to gate on them.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, so Code Scanning stays current and the public Action path keeps getting exercised
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  security-events: write   # required to upload SARIF to Code Scanning
+
+jobs:
+  self-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AgentSec against the bundled vulnerable example, via the public Action
+        id: agentsec
+        uses: invarislabs/invaris-agentsec@main   # the real path an outside user takes, not `uses: ./`
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          formats: json,html,sarif
+          fail-on: none          # findings are expected and wanted here; see the comment above
+          artifact-name: agentsec-self-scan
+
+      - name: Upload results to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.agentsec.outputs.report-dir }}/results.sarif

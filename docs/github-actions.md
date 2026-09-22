@@ -145,6 +145,8 @@ findings surface as code-scanning alerts than fail the step directly; keep the u
 both. `security-events: write` is required for the upload step and is not implied by `contents: read`.
 SARIF is additive: it changes nothing about the other formats, `compare-report.sh`, or the PR comment.
 
+This repo runs exactly this setup on itself: see `.github/workflows/self-scan.yml` for a complete, working example, and its [findings](https://github.com/invarislabs/invaris-agentsec/security/code-scanning) for what the result looks like.
+
 ## How it works
 
 Logic lives in scripts under `action/` (`start-agent.sh`, `run-agentsec.sh`, `stop-agent.sh`,
@@ -158,6 +160,14 @@ codes. The agent is always stopped (`if: always()`).
 The scripts are exercised by `tests/test_action_scripts.py` against the real reference agents (and, for
 `pr-comment.sh`, against a fake `gh` binary, since no real GitHub API call is made in tests), and the YAML
 wiring is checked structurally, and `tests/test_sarif_report.py` checks the SARIF output's shape and
-validity in isolation. The workflow itself (including `.github/workflows/ci.yml`, composite outputs after
-a `continue-on-error` step, a real posted or updated pull-request comment, and a real `upload-sarif` step
-populating the Code Scanning tab) has **not** been run on real GitHub Actions yet. Check the first run.
+validity in isolation.
+
+`.github/workflows/self-scan.yml`, in this repo, is the real-world check for the rest: it calls the Action
+the way an outside project actually would (`uses: invarislabs/invaris-agentsec@main`, not the `uses: ./`
+that `ci.yml` uses to test the Action's own code from inside this repo), against the bundled vulnerable
+reference agent, and uploads the SARIF output to this repo's own **Security > Code Scanning** tab. Its
+latest run is under the [Actions tab](https://github.com/invarislabs/invaris-agentsec/actions/workflows/self-scan.yml),
+and the findings it reports are visible under [Security > Code scanning](https://github.com/invarislabs/invaris-agentsec/security/code-scanning) --
+both are the live proof that the packaged Action and the SARIF/Code Scanning path work end to end for a
+real, external consumer of the Action, not just inside this repo's own test suite. A real posted or updated
+pull-request comment from `baseline-report` is the one piece still unverified on real GitHub Actions.
