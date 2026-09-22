@@ -52,6 +52,29 @@ def test_sarif_masks_secrets_like_other_formats(report):
     json.loads(text)  # render_sarif must produce parseable JSON
 
 
+def test_build_report_threads_policy_path_into_sarif_and_replay(vulnerable_url):
+    from conftest import POLICY_YAML
+    policy = parse_policy(POLICY_YAML.format(endpoint=vulnerable_url))
+    suite = run_suite(policy, HTTPAgentAdapter(policy.agent))
+    real_path = "examples/vulnerable_rag_agent/agentsec.yaml"
+    report_with_path = build_report(suite, policy_path=real_path)
+    assert report_with_path["run_config"]["policy_path"] == real_path
+    assert "--policy %s" % real_path in report_with_path["run_config"]["replay"]
+
+    log = build_sarif(report_with_path)
+    uris = {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+            for r in log["runs"][0]["results"]}
+    assert uris == {real_path}
+
+
+def test_sarif_falls_back_to_placeholder_without_a_policy_path(report):
+    # `report` fixture is built via build_report(suite) with no policy_path (backward compatible).
+    assert report["run_config"].get("policy_path") is None
+    log = build_sarif(report)
+    for r in log["runs"][0]["results"]:
+        assert r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "agentsec.yaml"
+
+
 def test_sarif_with_no_findings_is_still_valid():
     empty_report = {
         "tool": {"version": "0"}, "run_config": {}, "findings": [],
@@ -71,7 +94,7 @@ def test_write_reports_writes_sarif(tmp_path, report):
         pass
 
     orig_build_report = writers_mod.build_report
-    writers_mod.build_report = lambda suite: report
+    writers_mod.build_report = lambda suite, policy_path=None: report
     try:
         _, paths = _write(_FakeSuite(), str(tmp_path), ["sarif"])
     finally:

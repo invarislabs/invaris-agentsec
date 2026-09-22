@@ -49,7 +49,7 @@ def _message(finding: Dict[str, Any]) -> str:
 
 
 def _result(finding: Dict[str, Any], run_config: Dict[str, Any]) -> Dict[str, Any]:
-    policy_path = ((run_config.get("policy") or {}).get("path")) or "agentsec.yaml"
+    policy_path = run_config.get("policy_path") or "agentsec.yaml"
     return {
         "ruleId": finding["rule"],
         "level": _LEVEL[finding["severity"]],

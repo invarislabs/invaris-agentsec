@@ -111,6 +111,20 @@ def test_cli_can_write_a_sarif_report(tmp_path, policy_text, vulnerable_url):
     log = json.loads(sarif_path.read_text())
     assert log["version"] == "2.1.0"
     assert len(log["runs"][0]["results"]) > 0
+    # every SARIF result should point at the real policy file the CLI was invoked with,
+    # not a hardcoded placeholder.
+    uris = {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in log["runs"][0]["results"]}
+    assert uris == {pol}
+
+
+def test_cli_report_json_carries_real_policy_path_and_replay_hint(tmp_path, policy_text, vulnerable_url):
+    import json
+    out = str(tmp_path / "out")
+    pol = write_policy(tmp_path, policy_text, vulnerable_url)
+    assert main(["test", "-p", pol, "-o", out]) == 1
+    report = json.loads((tmp_path / "out" / "report.json").read_text())
+    assert report["run_config"]["policy_path"] == pol
+    assert report["run_config"]["replay"].startswith("agentsec test --policy %s --seed " % pol)
 
 
 def test_cli_scenario_filter_and_errors(tmp_path, policy_text, safe_url, capsys):

@@ -342,7 +342,12 @@ def test_pr_comment_posts_a_new_comment_when_none_exists(workdir, tmp_path):
     calls = [json.loads(l) for l in (workdir / "gh.log").read_text().splitlines()]
     assert calls[0][:2] == ["api", "repos/acme/agentsec/issues/42/comments"]
     assert calls[1][:3] == ["api", "--method", "POST"]
-    body_arg = next(a for a in calls[1] if a.startswith("body=@"))
+    body_idx = next(i for i, a in enumerate(calls[1]) if a.startswith("body=@"))
+    # Must be -F (typed field, reads @filename as file content), not -f (raw-field, which would
+    # send the literal string "@/tmp/..." as the comment body -- a real bug this test previously
+    # missed because the fake `gh` stub doesn't distinguish the two flags' real-world semantics).
+    assert calls[1][body_idx - 1] == "-F"
+    body_arg = calls[1][body_idx]
     body_text = Path(body_arg[len("body=@"):]).read_text()
     assert "agentsec-compare:default" in body_text and "one" in body_text
 
@@ -359,7 +364,9 @@ def test_pr_comment_updates_an_existing_comment(workdir, tmp_path):
     assert res.returncode == 0 and "Updated the existing" in res.stdout
     calls = [json.loads(l) for l in (workdir / "gh.log").read_text().splitlines()]
     assert calls[1][:4] == ["api", "--method", "PATCH", "repos/acme/agentsec/issues/comments/555"]
-    body_arg = next(a for a in calls[1] if a.startswith("body=@"))
+    body_idx = next(i for i, a in enumerate(calls[1]) if a.startswith("body=@"))
+    assert calls[1][body_idx - 1] == "-F"  # see the note in test_pr_comment_posts_a_new_comment_when_none_exists
+    body_arg = calls[1][body_idx]
     assert "agentsec-compare:matrix-a" in Path(body_arg[len("body=@"):]).read_text()
 
 
