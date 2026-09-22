@@ -18,7 +18,7 @@ agentsec.yaml ──▶ Policy ──▶ Scenario builders ──▶ Runner ─�
    answers it with a simulated result. It repeats until the agent gives a final answer, a limit
    is hit, or the adapter fails. Every event goes into a `Trace`.
 4. **Evaluate.** `agentsec/evaluators` inspects the trace and produces `Finding` objects.
-5. **Report.** `agentsec/reports` prints the terminal summary and writes `report.json` and `report.html` (and `summary.md` on request).
+5. **Report.** `agentsec/reports` prints the terminal summary and writes `report.json` and `report.html` (and `summary.md` or `results.sarif` on request).
    Findings are tagged with OWASP agentic categories on the way out.
 
 The runner is stateless between scenarios: each one starts a new conversation and the full message
@@ -34,10 +34,10 @@ history is resent on every step. That keeps runs independent and makes any scena
 | `agentsec/integrations` | `LangChainAdapter` for LangChain and LangGraph agents (duck-typed, imports no framework) |
 | `agentsec/compare.py` | Diffs two reports by finding id for `agentsec compare` |
 | `agentsec/mcp` | MCP client (stdio and HTTP, lists tools only), static checks on tool definitions, pinning, the MCP report, and `host.py`, the MCP attack host that lets AgentSec act as the MCP server an agent connects to |
-| `agentsec/attacks` | Scenario definition, category registry, one module per category |
+| `agentsec/attacks` | Scenario definition, category registry, one module per category, plus `packs.py` for loading extra categories from an attack pack |
 | `agentsec/runners` | Drives a scenario (including multi-session ones), simulates tools, enforces limits, records the trace. `replay.py` re-runs findings from a report |
 | `agentsec/evaluators` | Deterministic checks that turn traces into findings, plus the optional model-assisted `judge.py` |
-| `agentsec/reports` | Terminal, JSON, HTML and Markdown renderers, secret masking, GitHub Actions annotations and job summary |
+| `agentsec/reports` | Terminal, JSON, HTML, Markdown and SARIF renderers, secret masking, GitHub Actions annotations and job summary |
 | `agentsec/owasp.py` | Maps each finding rule to OWASP Top 10 for Agentic Applications categories |
 | `agentsec/api.py` | `AgentTarget` and `SecuritySuite` for running scenarios from Python |
 | `agentsec/pytest_plugin.py` | pytest options and fixtures, registered through the `pytest11` entry point |
@@ -159,7 +159,7 @@ depend on another model's judgment.
   if the agent reports them through `x_agentsec.events`.
 - Deterministic evaluators do not catch a paraphrased leak of restricted content unless it contains the canary or a configured secret.
   The optional judge is meant to cover that gap, with the uncertainty of any model.
-- Adapters exist for OpenAI-compatible HTTP (optionally streaming) and in-process Python functions; there are no framework-specific adapters. Scenarios run sequentially.
+- Adapters exist for OpenAI-compatible HTTP (optionally streaming), in-process Python functions, and LangChain/LangGraph (`LangChainAdapter`); there are no dedicated adapters for other frameworks (CrewAI, AutoGen, LlamaIndex, OpenAI Agents SDK) yet — wrap them with `CallableAdapter` instead. Scenarios run sequentially.
 - MCP support covers static scanning of a server's tool definitions and an attack host (`--mcp-listen`) that delivers scenarios to an agent over streamable HTTP. It does not speak stdio, and the agent's tool loop cannot be interrupted mid-run.
 - Categories that rely on simulated tool output (tool-output poisoning, loops) need an agent that calls tools through the API. They cannot fire against an agent
   that runs its own retrieval server-side.

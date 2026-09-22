@@ -37,6 +37,7 @@ Describes the agent. It is the same information as an `agentsec.yaml` policy, an
 | `name`, `model`, `api_key_env`, `headers`, `timeout_s`, `declare_tools`, `retrieval_tools`, `pricing` | As in the [policy reference](policy-reference.md#agent) |
 | `max_steps`, `max_tool_calls`, `max_repeated_calls`, `max_tokens`, `max_seconds`, `max_cost_usd` | As in `limits` |
 | `judge` | An optional `JudgeConfig`, used when the suite is created with `judge=True` |
+| `attack_packs` | Names of attack packs to load (files or installed modules), same as the policy's `attack_packs:` |
 
 Two constructors load an existing policy: `AgentTarget.from_file("agentsec.yaml")` and `AgentTarget.from_policy(policy)`.
 
@@ -129,12 +130,14 @@ AssertionError: AgentSec: 6 finding(s) at or above 'high', 0 errored scenario(s)
 
 Each `agentsec_run` call starts a fresh run, so parametrizing over categories runs each category once. Use the CLI if you want the HTML report and OWASP summary. The plugin is for pass or fail gating.
 
-Optional arguments of `SecuritySuite`: `seed`, `adapter`, `judge`, and `mcp_host` (an `MCPAttackHost`, see [MCP testing](mcp-testing.md)).
+Optional arguments of `SecuritySuite`: `seed`, `adapter`, `judge`, `mcp_host` (an `MCPAttackHost`, see [MCP testing](mcp-testing.md)), and `attack_packs` (a dict of extra categories, the same shape as an attack pack's `CATEGORIES`; see [Extending: write an attack pack](extending.md#write-an-attack-pack)).
 
 ## Testing an in-process agent (no HTTP server)
 
 Wrap any Python function with `CallableAdapter` and pass it to `SecuritySuite`. This works with any
-framework, because you write the few lines that call your agent; AgentSec has no framework integrations of its own.
+framework, because you write the few lines that call your agent. AgentSec also ships a dedicated
+`LangChainAdapter` for LangChain and LangGraph agents (see [Frameworks](frameworks.md)); for anything
+else (OpenAI Agents SDK, LlamaIndex, CrewAI, AutoGen, plain code), `CallableAdapter` is the way in.
 
 ```python
 from agentsec.api import AgentTarget, SecuritySuite

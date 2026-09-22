@@ -1,7 +1,7 @@
 # Invaris AgentSec documentation
 
-These docs describe what is built today: the Phase 1 local testing engine, Phase 2, and Phase 3 (regression comparison, streaming, MCP scanning and MCP-based agent testing, LangChain/LangGraph support). Planned work is in the
-[roadmap](../README.md#roadmap) and is not described here.
+These docs describe what is built today; see [What's Built](../README.md#whats-built) in the main README for the
+full list. Planned work is in [Future Work](../README.md#future-work) and is not described here.
 
 | Document | Read it to... |
 |---|---|
@@ -34,13 +34,15 @@ rules cannot see, and its findings are labelled as model-assisted.
 ## Current status
 
 - 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
-- Terminal, JSON, HTML and Markdown reports, with findings tagged to OWASP agentic categories.
+- Terminal, JSON, HTML, Markdown and SARIF reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
 - `agentsec mcp scan` to check MCP server tool definitions (static, never calls tools), and `agentsec test --mcp-listen` to test an agent that uses MCP.
-- `agentsec compare` to diff two reports and flag regressions.
+- `agentsec compare` to diff two reports and flag regressions; the packaged GitHub Action can compare a run against a baseline report and post the result as a pull-request comment.
+- `attack_packs` / `agentsec test --attack-pack` to add your own scenario categories without forking AgentSec.
+- `--format sarif` writes a SARIF 2.1.0 report for GitHub Code Scanning, alongside the JSON, HTML and Markdown formats.
 - A Python API and a pytest plugin.
 - An opt-in model-assisted judge, never critical and always labelled.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
-- Adapters: OpenAI-compatible HTTP (optionally streaming) an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
+- Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
 - Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
-- 80 automated tests.
+- 177 automated tests (182 with the optional LangGraph extra installed).
