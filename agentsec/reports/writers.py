@@ -8,9 +8,10 @@ from ..runners import SuiteResult
 from .html_report import render_html
 from .json_report import build_report
 from .markdown_report import render_markdown
+from .sarif_report import render_sarif
 
-FORMATS = ("json", "html", "markdown")
-_FILES = {"json": "report.json", "html": "report.html", "markdown": "summary.md"}
+FORMATS = ("json", "html", "markdown", "sarif")
+_FILES = {"json": "report.json", "html": "report.html", "markdown": "summary.md", "sarif": "results.sarif"}
 
 
 def write_reports(suite: SuiteResult, out_dir: str,
@@ -25,6 +26,8 @@ def write_reports(suite: SuiteResult, out_dir: str,
             text = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
         elif fmt == "html":
             text = render_html(report)
+        elif fmt == "sarif":
+            text = render_sarif(report)
         else:
             text = render_markdown(report)
         with open(path, "w", encoding="utf-8") as fh:
