@@ -1,0 +1,50 @@
+name: verify-pr-comment
+
+# One-off, opt-in check that the packaged Action's pull-request comparison comment actually posts
+# under real GitHub Actions conditions -- a real `pull_request` event, a real GITHUB_TOKEN, the
+# real `gh` CLI -- rather than the fake `gh` binary tests/test_action_scripts.py substitutes for
+# in unit tests. ci.yml's own baseline-comparison job deliberately sets `pr-comment: "false"`
+# because it runs on every real pull request against this repo and must not spam a comment there;
+# this workflow is the deliberate, explicit exception. It only runs when someone opts a specific
+# PR into it with the "verify-pr-comment" label, so it never fires on ordinary PRs.
+#
+# To use it: open a PR, add the "verify-pr-comment" label (GitHub lets you create it on the fly
+# from the PR sidebar if it doesn't exist yet), and check that a new "AgentSec regression
+# comparison" comment appears on the PR. Push another commit to the same PR to confirm the second
+# run updates the same comment instead of posting a duplicate.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write   # required for pr-comment.sh to post/update a comment
+
+jobs:
+  verify:
+    if: contains(github.event.pull_request.labels.*.name, 'verify-pr-comment')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baseline run (safe agent)
+        id: baseline
+        uses: ./
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --safe --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          out: .agentsec/verify-baseline
+          artifact-name: verify-pr-comment-baseline
+
+      - name: Compared run (vulnerable agent), posts/updates the PR comment
+        uses: ./
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          baseline-report: ${{ steps.baseline.outputs.report-dir }}/report.json
+          compare-fail-on: none
+          comment-marker: verify-pr-comment
+          artifact-name: verify-pr-comment-head
