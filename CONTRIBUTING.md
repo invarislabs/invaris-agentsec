@@ -33,6 +33,13 @@ See [SECURITY.md](SECURITY.md). Do not open a public issue for a vulnerability.
 
 By contributing you agree that your contribution is licensed under the Apache License 2.0.
 
+On your first pull request, a CLA Assistant bot will also ask you to confirm you agree to the
+[Contributor License Agreement](CLA.md) by replying with a short confirmation comment. This just
+makes explicit what the Apache License already implies -- that your contribution is yours to give
+-- and additionally lets the project relicense in the future (for example, offering an enterprise
+edition) without having to track down every past contributor individually. You only need to do
+this once; it's remembered for your future pull requests.
+
 ## Releasing (maintainers)
 
 1. Bump the version in `pyproject.toml` and `agentsec/__init__.py`, and add a section to `CHANGELOG.md` (a test checks all three agree).

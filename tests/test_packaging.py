@@ -20,7 +20,7 @@ def test_version_matches_between_package_and_pyproject_and_changelog():
 
 
 def test_required_project_files_exist():
-    for name in ("LICENSE", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"):
+    for name in ("LICENSE", "NOTICE", "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"):
         assert (ROOT / name).is_file(), name
 
 
