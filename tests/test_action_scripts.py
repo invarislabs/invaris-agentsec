@@ -1,4 +1,5 @@
 """Tests for the GitHub Action: its helper scripts (run for real) and the action.yml wiring."""
+import json
 import os
 import re
 import shutil
@@ -172,6 +173,196 @@ def test_stop_is_safe_when_nothing_was_started(workdir):
     assert sh("stop-agent.sh", env_for(workdir), workdir).returncode == 0
 
 
+# --- compare-report.sh ----------------------------------------------------------
+
+def _report(findings, scenarios=("a",), seed=0):
+    return json.dumps({"run_config": {"seed": seed, "policy": {}},
+                       "findings": findings, "scenarios": [{"id": s, "status": "passed"} for s in scenarios]})
+
+
+def _finding(sid="a", rule="r", sev="high"):
+    return {"id": "%s:%s" % (sid, rule), "rule": rule, "scenario_id": sid, "severity": sev, "title": "t"}
+
+
+def compare_env(workdir, **extra):
+    return env_for(workdir, GITHUB_STEP_SUMMARY=str(workdir / "summary.md"), **extra)
+
+
+def test_compare_report_without_baseline_is_a_noop(workdir):
+    res = sh("compare-report.sh", compare_env(workdir), workdir)
+    assert res.returncode == 0 and "No baseline-report" in res.stdout
+    out = outputs(workdir)
+    assert out["compare-exit-code"] == "" and out["compare-summary-path"] == ""
+
+
+def test_compare_report_missing_baseline_file(workdir):
+    (workdir / ".agentsec").mkdir()
+    (workdir / ".agentsec/report.json").write_text(_report([]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "nope.json")), workdir)
+    assert res.returncode == 0 and outputs(workdir)["compare-exit-code"] == "2"
+    assert "does not exist" in res.stdout
+
+
+def test_compare_report_missing_current_file(workdir):
+    (workdir / "baseline.json").write_text(_report([]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "baseline.json"),
+                                              CURRENT_REPORT=str(workdir / "nope.json")), workdir)
+    assert res.returncode == 0 and outputs(workdir)["compare-exit-code"] == "2"
+
+
+def test_compare_report_clean_run_exits_0(workdir):
+    (workdir / "baseline.json").write_text(_report([_finding()]))
+    (workdir / "current.json").write_text(_report([_finding()]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "baseline.json"),
+                                              CURRENT_REPORT=str(workdir / "current.json")), workdir)
+    out = outputs(workdir)
+    assert res.returncode == 0 and out["compare-exit-code"] == "0"
+    assert Path(out["compare-summary-path"]).read_text()
+    assert "AgentSec regression comparison" in (workdir / "summary.md").read_text()
+
+
+def test_compare_report_regression_sets_exit_code_1(workdir):
+    (workdir / "baseline.json").write_text(_report([]))
+    (workdir / "current.json").write_text(_report([_finding()]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "baseline.json"),
+                                              CURRENT_REPORT=str(workdir / "current.json")), workdir)
+    assert res.returncode == 0  # the step itself never fails
+    out = outputs(workdir)
+    assert out["compare-exit-code"] == "1"
+    assert "New" in Path(out["compare-summary-path"]).read_text()
+
+
+def test_compare_report_respects_compare_fail_on(workdir):
+    (workdir / "baseline.json").write_text(_report([]))
+    (workdir / "current.json").write_text(_report([_finding(sev="medium")]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "baseline.json"),
+                                              CURRENT_REPORT=str(workdir / "current.json"),
+                                              COMPARE_FAIL_ON="critical"), workdir)
+    assert res.returncode == 0 and outputs(workdir)["compare-exit-code"] == "0"
+
+
+def test_compare_report_malformed_baseline_is_exit_2(workdir):
+    (workdir / "baseline.json").write_text("not json")
+    (workdir / "current.json").write_text(_report([]))
+    res = sh("compare-report.sh", compare_env(workdir, BASELINE_REPORT=str(workdir / "baseline.json"),
+                                              CURRENT_REPORT=str(workdir / "current.json")), workdir)
+    assert res.returncode == 0 and outputs(workdir)["compare-exit-code"] == "2"
+
+
+# --- pr-comment.sh ---------------------------------------------------------------
+
+FAKE_GH = r"""#!/usr/bin/env python3
+import json, os, sys
+
+with open(os.environ["FAKE_GH_LOG"], "a", encoding="utf-8") as fh:
+    fh.write(json.dumps(sys.argv[1:]) + "\n")
+
+args = sys.argv[1:]
+if "--method" in args:
+    print(json.dumps({"id": 999}))
+else:
+    print(os.environ.get("FAKE_GH_EXISTING_ID", ""))
+"""
+
+
+def install_fake_gh(bindir):
+    bindir.mkdir(exist_ok=True)
+    path = bindir / "gh"
+    path.write_text(FAKE_GH)
+    path.chmod(0o755)
+    return path
+
+
+def path_without_gh(tmp_path):
+    """A PATH with only bash and python3 on it (symlinked from wherever they really live), and no gh.
+
+    A GitHub-hosted runner has gh preinstalled, so merely prepending an empty directory to the real
+    PATH does not hide it. Build PATH from scratch instead, so the "no gh" case is reproducible
+    locally and in CI alike.
+    """
+    bindir = tmp_path / "no_gh_bin"
+    bindir.mkdir(exist_ok=True)
+    for name in ("bash", "sh", "python3"):
+        real = shutil.which(name)
+        if real:
+            link = bindir / name
+            if not link.exists():
+                link.symlink_to(real)
+    return str(bindir)
+
+
+def pr_env(workdir, bindir, event, **extra):
+    event_path = workdir / "event.json"
+    event_path.write_text(json.dumps({"pull_request": {"number": 42}}) if event.startswith("pull_request") else "{}")
+    env = env_for(workdir, GITHUB_EVENT_NAME=event, GITHUB_EVENT_PATH=str(event_path),
+                 GITHUB_REPOSITORY="acme/agentsec", GITHUB_TOKEN="tok", FAKE_GH_LOG=str(workdir / "gh.log"), **extra)
+    env["PATH"] = str(bindir) + os.pathsep + env["PATH"]
+    return env
+
+
+def test_pr_comment_skips_without_a_summary(workdir):
+    res = sh("pr-comment.sh", env_for(workdir), workdir)
+    assert res.returncode == 0 and "No comparison summary" in res.stdout
+
+
+def test_pr_comment_skips_on_non_pull_request_events(workdir):
+    summary = workdir / "summary.txt"
+    summary.write_text("hello")
+    res = sh("pr-comment.sh", env_for(workdir, SUMMARY_PATH=str(summary), GITHUB_EVENT_NAME="push"), workdir)
+    assert res.returncode == 0 and "skipping" in res.stdout
+
+
+def test_pr_comment_skips_without_gh_or_token(workdir, tmp_path):
+    summary = workdir / "summary.txt"
+    summary.write_text("hello")
+    env = env_for(workdir, SUMMARY_PATH=str(summary), GITHUB_EVENT_NAME="pull_request",
+                 GITHUB_EVENT_PATH=str(workdir / "event.json"))
+    (workdir / "event.json").write_text(json.dumps({"pull_request": {"number": 1}}))
+    env["PATH"] = path_without_gh(tmp_path)  # no gh reachable, but bash and python3 still resolvable
+    res = sh("pr-comment.sh", env, workdir)
+    assert res.returncode == 0 and "gh CLI is not available" in res.stdout
+
+    env2 = env_for(workdir, SUMMARY_PATH=str(summary), GITHUB_EVENT_NAME="pull_request",
+                   GITHUB_EVENT_PATH=str(workdir / "event.json"), GITHUB_TOKEN="")
+    bindir = tmp_path / "bin"
+    install_fake_gh(bindir)
+    env2["PATH"] = str(bindir) + os.pathsep + env2["PATH"]
+    res2 = sh("pr-comment.sh", env2, workdir)
+    assert res2.returncode == 0 and "no github-token" in res2.stdout
+
+
+def test_pr_comment_posts_a_new_comment_when_none_exists(workdir, tmp_path):
+    summary = workdir / "summary.txt"
+    summary.write_text("### findings\n- one")
+    bindir = tmp_path / "bin1"
+    install_fake_gh(bindir)
+    env = pr_env(workdir, bindir, "pull_request", SUMMARY_PATH=str(summary), FAKE_GH_EXISTING_ID="")
+    res = sh("pr-comment.sh", env, workdir)
+    assert res.returncode == 0 and "Posted a new" in res.stdout
+    calls = [json.loads(l) for l in (workdir / "gh.log").read_text().splitlines()]
+    assert calls[0][:2] == ["api", "repos/acme/agentsec/issues/42/comments"]
+    assert calls[1][:3] == ["api", "--method", "POST"]
+    body_arg = next(a for a in calls[1] if a.startswith("body=@"))
+    body_text = Path(body_arg[len("body=@"):]).read_text()
+    assert "agentsec-compare:default" in body_text and "one" in body_text
+
+
+def test_pr_comment_updates_an_existing_comment(workdir, tmp_path):
+    summary = workdir / "summary.txt"
+    summary.write_text("### findings\n- two")
+    bindir = tmp_path / "bin2"
+    install_fake_gh(bindir)
+    env = pr_env(workdir, bindir, "pull_request_target", SUMMARY_PATH=str(summary), FAKE_GH_EXISTING_ID="555",
+                comment_marker="matrix-a")
+    env["COMMENT_MARKER_KEY"] = "matrix-a"
+    res = sh("pr-comment.sh", env, workdir)
+    assert res.returncode == 0 and "Updated the existing" in res.stdout
+    calls = [json.loads(l) for l in (workdir / "gh.log").read_text().splitlines()]
+    assert calls[1][:4] == ["api", "--method", "PATCH", "repos/acme/agentsec/issues/comments/555"]
+    body_arg = next(a for a in calls[1] if a.startswith("body=@"))
+    assert "agentsec-compare:matrix-a" in Path(body_arg[len("body=@"):]).read_text()
+
+
 # --- action.yml / ci.yml wiring ------------------------------------------------
 
 def load(path):
@@ -179,7 +370,7 @@ def load(path):
 
 
 def test_scripts_exist_are_executable_and_valid_bash():
-    for name in ("start-agent.sh", "stop-agent.sh", "run-agentsec.sh"):
+    for name in ("start-agent.sh", "stop-agent.sh", "run-agentsec.sh", "compare-report.sh", "pr-comment.sh"):
         path = ACTION / name
         assert path.exists() and os.access(path, os.X_OK)
         assert subprocess.run(["bash", "-n", str(path)]).returncode == 0
@@ -199,12 +390,14 @@ def test_steps_wire_scripts_and_outputs():
     assert action["runs"]["using"] == "composite"
     assert all("shell" in s for s in steps if "run" in s)
     text = (ROOT / "action.yml").read_text()
-    for script in ("start-agent.sh", "stop-agent.sh", "run-agentsec.sh"):
+    for script in ("start-agent.sh", "stop-agent.sh", "run-agentsec.sh", "compare-report.sh", "pr-comment.sh"):
         assert "action/%s" % script in text
     ids = {s.get("id") for s in steps}
     assert "run" in ids
+    step_for_output = {"compare-exit-code": "compare"}
     for name, out in action["outputs"].items():
-        assert "steps.run.outputs.%s" % name in out["value"]
+        step_id = step_for_output.get(name, "run")
+        assert "steps.%s.outputs." % step_id in out["value"], (name, out["value"])
     # cleanup and upload must still run when the tests fail
     by_name = {s["name"]: s for s in steps}
     assert "always()" in by_name["Stop the agent"]["if"]
@@ -214,9 +407,13 @@ def test_steps_wire_scripts_and_outputs():
 
 
 def test_run_step_outputs_match_what_the_script_writes():
-    script = (ACTION / "run-agentsec.sh").read_text()
+    scripts = {"run-agentsec.sh": (ACTION / "run-agentsec.sh").read_text(),
+              "compare-report.sh": (ACTION / "compare-report.sh").read_text()}
+    by_output_key = {"exit-code": "run-agentsec.sh", "report-dir": "run-agentsec.sh",
+                     "findings": "run-agentsec.sh", "scenarios": "run-agentsec.sh",
+                     "compare-exit-code": "compare-report.sh"}
     for key in load("action.yml")["outputs"]:
-        assert 'echo "%s=' % key in script
+        assert 'echo "%s=' % key in scripts[by_output_key[key]], key
 
 
 def test_inputs_are_passed_via_env_not_interpolated_into_shell():

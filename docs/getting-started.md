@@ -105,7 +105,7 @@ Never point it at production. See the Security Model in the main README.
 |---|---|---|
 | `-p, --policy PATH` | `agentsec.yaml` | Policy file |
 | `-o, --out DIR` | `.agentsec` | Directory for the report files |
-| `-f, --format LIST` | `json,html` | Comma-separated report formats: `json`, `html`, `markdown` (writes `summary.md`) |
+| `-f, --format LIST` | `json,html` | Comma-separated report formats: `json`, `html`, `markdown` (writes `summary.md`), `sarif` (writes `results.sarif`, for [GitHub Code Scanning](github-actions.md#github-code-scanning-sarif)) |
 | `--seed N` | `0` | Seed for canaries and markers. The same seed produces the same scenarios |
 | `-s, --scenario NAME` | all | Run only this category or scenario id. Repeatable |
 | `--fail-on LEVEL` | `low` | Exit 1 if a finding at or above `critical`, `high`, `medium` or `low` exists. `none` never fails on findings |

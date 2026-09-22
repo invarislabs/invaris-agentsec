@@ -6,7 +6,7 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development. Phase 1 (the local testing engine) and Phase 2 (reporting, replay, Python API, pytest, memory poisoning, model-assisted checks, the GitHub Action) and Phase 3 (regression comparison, streaming, MCP scanning and MCP-based agent testing, LangChain and LangGraph support) are complete. Phases 4 and 5 are planned and may evolve. The first PyPI release is being prepared. Interfaces marked as provisional may still change.
+> **Project status:** Early development, but the local testing engine is functional and self-contained: 8 attack categories across 34 deterministic, replayable scenarios; JSON, HTML, Markdown and SARIF reports; a Python API and pytest plugin; MCP server scanning and MCP-based agent testing; LangChain/LangGraph support; regression comparison; a packaged GitHub Action with pull-request comparison comments and GitHub Code Scanning integration; and a plugin mechanism (attack packs) for adding your own scenarios without forking the project. The first PyPI release is being prepared. See [What's Built](#whats-built) for the full list and [Future Work](#future-work) for what's next. Interfaces marked as provisional may still change.
 
 ## Why AgentSec?
 
@@ -23,30 +23,31 @@ Unit tests alone cannot adequately exercise these behaviours. AgentSec runs stat
 
 ## What AgentSec Tests
 
-The initial test suite is designed to cover:
+The test suite covers:
 
 - Direct and indirect prompt injection
 - Unauthorized tool invocation
 - Tool-output and MCP-server poisoning
 - Sensitive-data and secret leakage
-- Identity and privilege misuse
 - Memory poisoning and unsafe persistence
 - Excessive tool calls, token usage, and cost
 - Infinite loops and missing termination conditions
 - Unsafe handling of retrieved documents
-- Behavioural regressions across models and prompts
-- Multi-agent trust and delegation failures
-- Unauthorized financial or on-chain actions
-Findings can be mapped to established agent-security categories such as the OWASP Top 10 for Agentic Applications.
+- Behavioural regressions across models and prompts, via `agentsec compare`
+
+Identity and privilege misuse, multi-agent trust and delegation failures, and unauthorized financial or on-chain actions are not covered yet; see [Future Work](#future-work).
+
+Findings are mapped to the [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) (ASI01 to ASI10).
 
 ## Design Principles
 
-- **Evidence over scores:** Every finding should include the input, trace, violated policy, and observed action.
-- **Stateful testing:** Tests should cover complete workflows rather than isolated prompts.
-- **Framework independence:** AgentSec should work across models, agent frameworks, MCP servers, and custom APIs.
-- **CI-first:** Security regressions should be detectable automatically on every pull request.
-- **Local by default:** Developers should be able to test locally without sending private traces to a hosted service.
-- **Reproducibility:** A failed scenario should be replayable with the same configuration and evidence.
+- **Evidence over scores:** Every finding includes the input, trace, violated policy, and observed action.
+- **Stateful testing:** Tests cover complete workflows rather than isolated prompts.
+- **Framework independence:** AgentSec works across models, agent frameworks, MCP servers, and custom APIs.
+- **CI-first:** Security regressions are detectable automatically on every pull request.
+- **Local by default:** Developers can test locally without sending private traces to a hosted service.
+- **Reproducibility:** A failed scenario is replayable with the same configuration and evidence.
+
 ## Developer Experience
 
 Install the command-line tool:
@@ -127,9 +128,10 @@ agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 Against the vulnerable agent you should see 34 scenarios executed and findings in all eight
 categories. With `--safe`, all 34 pass.
 
-**Reports.** `agentsec test` writes `.agentsec/report.json` and a self-contained
-`.agentsec/report.html` (`--format json,html,markdown` to choose). Secrets are masked. Every finding
-is tagged with the closest [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)
+**Reports.** `agentsec test` writes `.agentsec/report.json` and a self-contained `.agentsec/report.html`
+(`--format json,html,markdown,sarif` to choose; `sarif` writes `results.sarif` for
+[GitHub Code Scanning](docs/github-actions.md#github-code-scanning-sarif)). Secrets are masked. Every
+finding is tagged with the closest [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)
 category (ASI01 to ASI10).
 
 **Exit codes.** `agentsec test` exits `1` when findings exist (`--fail-on high` to raise the bar,
@@ -146,11 +148,15 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **A RAG-style agent.** `examples/rag_agent` owns a small document corpus and runs its tools itself, reporting the calls to AgentSec. Start it with `python examples/rag_agent/server.py` (add `--safe` for the hardened variant) and test it with `agentsec test -p examples/rag_agent/agentsec.yaml`. See [`docs/agent-contract.md`](docs/agent-contract.md#the-rag-backed-reference-agent).
 
-**Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions.
+**Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions. The packaged GitHub Action wires this into pull requests automatically (`baseline-report`), posting and updating a PR comment with what's new or worse; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
 
 **MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools (never calls them) and flags poisoned descriptions, hidden characters, shadowing and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
 
-**MCP-connected agents.** `agentsec test --mcp-listen 127.0.0.1:8765` makes AgentSec the MCP server your agent uses, delivering the same adversarial scenarios through MCP tool results. **LangChain and LangGraph agents** can be tested in-process with `LangChainAdapter`; see [`docs/frameworks.md`](docs/frameworks.md).
+**MCP-connected agents.** `agentsec test --mcp-listen 127.0.0.1:8765` makes AgentSec the MCP server your agent uses, delivering the same adversarial scenarios through MCP tool results.
+
+**LangChain and LangGraph agents** can be tested in-process with `LangChainAdapter`; see [`docs/frameworks.md`](docs/frameworks.md). Any other framework works through the generic `CallableAdapter`.
+
+**Your own scenarios** can be added without forking AgentSec: `agentsec test --attack-pack my_pack.py` or `attack_packs:` in the policy loads extra categories from a local file or an installed package; see [`docs/extending.md`](docs/extending.md#write-an-attack-pack).
 
 **Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
@@ -167,7 +173,9 @@ server-side can report them in an `x_agentsec.events` field, and agents with mem
 under `secrets:` so leaks are detected.
 
 **In CI.** Inside GitHub Actions, `agentsec test` adds workflow annotations for each finding and
-writes a job summary automatically. A packaged action (`uses: ./`) starts your agent, runs the suite, uploads reports and gates the job; see [`docs/github-actions.md`](docs/github-actions.md).
+writes a job summary automatically. A packaged action (`uses: ./`) starts your agent, runs the suite,
+uploads reports and gates the job; it can also compare against a baseline report and comment on the
+pull request, or feed `results.sarif` to GitHub Code Scanning. See [`docs/github-actions.md`](docs/github-actions.md).
 
 Full documentation, including architecture, policy reference, attack catalog, Python API, testing
 and extension guides, is in [`docs/`](docs/README.md).
@@ -227,11 +235,12 @@ flowchart TD
 4. AgentSec records prompts, responses, tool calls, state changes, timing, and cost.
 5. Policy evaluators identify violations and assign severity.
 6. Reports provide reproducible evidence and remediation guidance.
+
 ## Architecture
 
 ```text
 agentsec/
-├── attacks/          # Prompt, retrieval, memory and tool attacks
+├── attacks/          # Prompt, retrieval, memory and tool attacks, plus attack-pack loading
 ├── adapters/         # OpenAI-compatible HTTP (optionally streaming) and in-process callables
 ├── mcp/              # MCP server scanner (client, checks, pins) and the MCP attack host
 ├── integrations/     # LangChain and LangGraph adapter
@@ -239,15 +248,15 @@ agentsec/
 ├── policies/         # Permissions, limits and expected behaviour
 ├── runners/          # Local runner and replay (CI and sandboxed planned)
 ├── traces/           # Normalized agent execution events
-├── reports/          # Terminal, JSON, HTML, Markdown and GitHub output
+├── reports/          # Terminal, JSON, HTML, Markdown, SARIF and GitHub output
 ├── cli/              # Command-line interface
 ├── compare.py        # Report-to-report regression comparison
 ├── owasp.py          # Mapping of findings to OWASP agentic categories
 ├── api.py            # Python API (AgentTarget, SecuritySuite)
 └── pytest_plugin.py  # pytest fixtures
-action.yml, action/   # Packaged GitHub Action
-examples/             # Vulnerable reference agents (rule-based, RAG-backed) and a demo MCP server
-tests/                # Unit and end-to-end tests
+action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
+examples/             # Vulnerable reference agents (rule-based, RAG-backed, MCP) and attack packs
+tests/                # Unit and end-to-end tests (177+ tests)
 ```
 
 ### Core components
@@ -261,72 +270,77 @@ tests/                # Unit and end-to-end tests
 | Evaluators | Detects leakage, unsafe actions and security regressions |
 | Reporter | Produces human-readable and machine-readable evidence |
 
-## MVP Scope
+## What's Built
 
-The first usable release focuses on a narrow, verifiable workflow. Status:
+### Core testing engine
 
-- [x] OpenAI-compatible HTTP agent adapter
-- [x] YAML security policies (with JSON schema)
-- [x] Direct and indirect prompt-injection scenarios
-- [x] Unauthorized tool-use detection
-- [x] Secret-leakage checks
-- [x] Tool-call, step, token, time, and cost limits
-- [x] Normalized execution traces
-- [x] Terminal and JSON reports
-- [x] HTML reports
-- [x] GitHub Actions integration (annotations, job summary and a packaged action)
-- [x] Intentionally vulnerable reference agents: a rule-based one, and a RAG-backed one with its own documents and server-side tools
+- [x] OpenAI-compatible HTTP agent adapter, with optional server-sent-events streaming (`agent.stream: true`)
+- [x] `CallableAdapter` for testing an agent in-process, no HTTP server required
+- [x] YAML security policies, validated against a JSON Schema (`agentsec schema policy`)
+- [x] Eight adversarial test categories: direct prompt injection, indirect prompt injection, secret extraction, unauthorized tool use, tool-output poisoning, unsafe retrieved documents, loop-and-budget limits, and memory poisoning (four two-session scenarios)
+- [x] Step, tool-call, token, time and cost limits, with pricing-based cost tracking
+- [x] Deterministic evaluators, plus an optional model-assisted judge for paraphrased or borderline leaks
+- [x] Normalized execution traces recording every prompt, tool call, tool result and state change
+- [x] Findings mapped to the OWASP Top 10 for Agentic Applications (ASI01-ASI10)
+- [x] Reproducible runs via `--seed`, and a CI-friendly exit code (`1` findings, `2` error)
 
-## Roadmap
+### Reports and CI
 
-### Phase 1 - Local testing engine (complete)
+- [x] Terminal, JSON, self-contained HTML, Markdown and SARIF 2.1.0 report formats (`--format`)
+- [x] Secrets masked everywhere, in every format
+- [x] `agentsec replay` re-runs findings from an earlier report to confirm a fix
+- [x] `agentsec compare` diffs two reports (new, fixed, unchanged, worse, better, not comparable)
+- [x] GitHub Actions workflow annotations and job summary, with no extra flags
+- [x] A packaged, reusable GitHub Action (`action.yml`) that installs AgentSec, optionally starts the agent, runs the suite, uploads reports and gates the job
+- [x] Baseline and pull-request regression testing built into the Action: compare a run against a baseline report and post (and update, across pushes) a PR comment listing what's new or worse
+- [x] SARIF output wired to GitHub Code Scanning (`--format sarif` plus `github/codeql-action/upload-sarif`); see [GitHub Actions](docs/github-actions.md#github-code-scanning-sarif)
 
-- [x] Define trace and policy schemas
-- [x] Implement HTTP agent adapter
-- [x] Add seven adversarial test categories: direct prompt injection, indirect prompt injection, secret extraction, unauthorized tool use, tool-output poisoning, unsafe retrieved documents, and loops and budget limits
-- [x] Enforce step, tool-call, token, time, cost and repeated-call limits
-- [x] Generate terminal and JSON reports with masked secrets
-- [x] Publish a deterministic vulnerable reference agent, plus a hardened variant that passes the suite
-- [x] Reproducible runs via `--seed`, and a CI-friendly exit code
+### Frameworks and protocols
 
-### Phase 2 - CI, reporting and coverage (in progress)
+- [x] `LangChainAdapter` for LangChain and LangGraph agents, run in-process, duck-typed so AgentSec never imports the framework itself
+- [x] `agentsec mcp scan`: statically scans an MCP server's tool list for poisoned descriptions, invisible characters, tool shadowing, forbidden or unlisted tools, and rug pulls (pin a server's definitions and compare across runs)
+- [x] `agentsec test --mcp-listen`: AgentSec acts as the MCP server an agent connects to, delivering the same adversarial scenarios over MCP tool results
+- [x] Agents that run tools server-side and stream their replies (server-sent events, `x_agentsec` events for reporting server-side tool calls and memory keys)
 
-Turns the local engine into something teams can drop into a pipeline.
+### Extensibility and API
 
-- [x] Add HTML reports (self-contained, light and dark themes)
-- [x] Add GitHub Actions output: workflow annotations and a job summary
-- [x] Add a packaged, reusable GitHub Action (`action.yml`; see docs/github-actions.md)
-- [x] Add a `replay` command that re-runs findings from a report
-- [x] Add pytest integration and the Python API
-- [x] Add memory-poisoning scenarios (four two-session scenarios)
-- [x] Add optional model-assisted evaluators alongside the deterministic ones
-- [x] Map findings to OWASP agentic categories (ASI01 to ASI10)
-- [x] Add a RAG-backed vulnerable example that runs its own tools (`examples/rag_agent`)
+- [x] Python API (`AgentTarget`, `SecuritySuite`) mirroring the CLI, for running scenarios from code
+- [x] A pytest plugin (`agentsec_run` fixture, `--agentsec-policy`)
+- [x] Attack packs: load extra scenario categories from a local file or an installed package without forking AgentSec (`attack_packs:` in the policy, or `agentsec test --attack-pack`), validated and name-collision-checked at load time
+- [x] Two intentionally vulnerable reference agents (rule-based, RAG-backed), each with a hardened variant that passes the full suite, plus a demo MCP server and an MCP-connected reference agent
 
-### Phase 3 - Framework and protocol coverage
+## Future Work
 
-- [x] Scan MCP servers for poisoned tool definitions and rug pulls (`agentsec mcp scan`; see docs/mcp-testing.md)
-- [x] Test agents that use MCP servers (`agentsec test --mcp-listen`: AgentSec acts as the MCP server; see docs/mcp-testing.md)
-- [x] Support popular agent frameworks: `LangChainAdapter` for LangChain and LangGraph, and a generic `CallableAdapter` for anything else (see docs/frameworks.md; other frameworks have no dedicated adapter)
-- [x] Add regression comparison between runs (`agentsec compare`)
-- [x] Support agents that execute tools server-side and stream their replies (server-sent events, `agent.stream: true`)
+Everything below is not yet built. It splits into a hosted platform, which is commercial territory kept
+separate from the open-source engine (see [Open Source and Commercial Direction](#open-source-and-commercial-direction)),
+and engine-level coverage gaps that stay in scope for AgentSec itself.
 
-### Phase 4 - Continuous security platform
+### Hosted platform
 
 - [ ] Hosted execution dashboard
-- [ ] Team projects and historical reports
-- [ ] Scheduled and pull-request testing
-- [ ] Private attack libraries
+- [ ] Team projects and cross-run historical reports
 - [ ] Self-hosted enterprise deployment
-- [ ] Production trace monitoring
+- [ ] Production trace monitoring (continuous monitoring of live agent traffic, not just test-time runs)
 
-### Phase 5 - Advanced autonomous systems
+The CLI-scoped equivalents of the first two items already exist and are open source: `agentsec compare`
+plus the GitHub Action's `baseline-report`/PR-comment support gives pull-request and scheduled regression
+testing without a hosted dashboard; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
+
+### Engine and coverage
 
 - [ ] Multi-agent adversarial simulation
 - [ ] Wallet and on-chain transaction policies
 - [ ] Agent identity and delegation testing
-- [ ] Stateful campaign generation
+- [ ] Stateful, multi-turn campaign generation
 - [ ] Cross-agent failure-propagation analysis
+- [ ] Memory-poisoning scenarios longer than one follow-up session
+- [ ] MCP-specific attacks beyond hostile tool results and decoy tools; see [MCP testing](docs/mcp-testing.md)
+- [ ] Dedicated adapters for other agent frameworks (CrewAI, AutoGen, LlamaIndex, OpenAI Agents SDK) — the generic `CallableAdapter` covers them today; see [Frameworks](docs/frameworks.md#any-other-framework)
+
+Real-world verification is also open: the packaged GitHub Action, the LangChain integration and the SARIF/Code
+Scanning upload are exercised by the test suite but have not yet been run against real GitHub Actions, real
+LLM-backed agents, or a real MCP server in production. See [Testing](docs/testing.md) for exactly what is
+and isn't covered.
 
 ## Intended Users
 
@@ -339,6 +353,7 @@ AgentSec is being designed for:
 - Enterprises deploying agents over internal data
 - Financial and blockchain teams building transaction-capable agents
 - Researchers studying agent reliability and adversarial behaviour
+
 ## Open Source and Commercial Direction
 
 The local testing engine will remain open source. Invaris Labs plans to build optional commercial capabilities around it, including:
@@ -349,7 +364,10 @@ The local testing engine will remain open source. Invaris Labs plans to build op
 - Enterprise self-hosting and access controls
 - Security assessments and remediation support
 - Compliance-ready evidence and reporting
-The open-source engine should remain useful on its own. Paid services will focus on scale, collaboration, continuous operation, and enterprise requirements.
+
+The open-source engine should remain useful on its own; the CLI-scoped building blocks for several of these
+(private attack libraries, pull-request regression testing) already ship in the engine, described above. Paid
+services will focus on scale, collaboration, continuous operation, and enterprise requirements.
 
 ## Security Model
 

@@ -101,6 +101,18 @@ def test_cli_exit_codes(tmp_path, policy_text, vulnerable_url, safe_url, capsys)
     capsys.readouterr()
 
 
+def test_cli_can_write_a_sarif_report(tmp_path, policy_text, vulnerable_url):
+    import json
+    out = str(tmp_path / "out")
+    pol = write_policy(tmp_path, policy_text, vulnerable_url)
+    assert main(["test", "-p", pol, "-o", out, "-f", "json,sarif"]) == 1
+    sarif_path = tmp_path / "out" / "results.sarif"
+    assert sarif_path.exists()
+    log = json.loads(sarif_path.read_text())
+    assert log["version"] == "2.1.0"
+    assert len(log["runs"][0]["results"]) > 0
+
+
 def test_cli_scenario_filter_and_errors(tmp_path, policy_text, safe_url, capsys):
     pol = write_policy(tmp_path, policy_text, safe_url)
     assert main(["test", "-p", pol, "-o", str(tmp_path / "o"), "-s", "prompt_injection/ignore_previous"]) == 0

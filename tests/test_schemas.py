@@ -36,6 +36,12 @@ def test_policy_errors(text, fragment):
     assert fragment in str(exc.value)
 
 
+def test_attack_packs_matches_json_schema(policy_text):
+    text = policy_text.format(endpoint="http://x/agent") + "attack_packs: [my_pack.py, installed_pack]\n"
+    jsonschema.validate(yaml.safe_load(text), policy_json_schema())
+    assert parse_policy(text).attack_packs == ["my_pack.py", "installed_pack"]
+
+
 def test_env_secret_resolution(monkeypatch):
     monkeypatch.setenv("DEMO_SECRET", "hunter2-hunter2")
     p = parse_policy(MIN + "secrets: ['env:DEMO_SECRET', 'env:MISSING_ONE', literal-value]")

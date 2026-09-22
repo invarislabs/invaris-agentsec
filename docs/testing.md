@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 144 tests (149 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 177 tests (182 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -41,6 +41,8 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_mcp.py` | MCP checks (poisoning, schema injection, invisible characters, shadowing, policy rules, near misses that must stay clean), pins and rug pulls, stdio and HTTP transports (pagination, sessions, SSE, errors), the `mcp scan` CLI, and terminal sanitising |
 | `tests/test_mcp_host.py` | AgentSec as the MCP server: protocol and recording, the vulnerable MCP-connected reference agent caught (critical findings, tool-call budget), the safe one passing every scenario, no tools declared in requests, and the `--mcp-listen` CLI (bad value, busy port) |
 | `tests/test_langchain_integration.py` | `LangChainAdapter` against real LangGraph agents (needs `pip install -e ".[langchain]"`; skipped otherwise) |
+| `tests/test_attack_packs.py` | Loading attack packs from a file or module, `CATEGORIES` validation, built-in/cross-pack name collisions, `check_pack_scenarios`, running a pack through `build_scenarios`/`run_suite`/the Python API/the CLI |
+| `tests/test_sarif_report.py` | SARIF 2.1.0 output: shape and schema version, one rule per finding rule id, severity-to-level mapping, secret masking, an empty run, and `-f sarif` through the CLI |
 | `tests/test_packaging.py` | Package version agrees with `pyproject.toml` and the changelog, required project files exist, license metadata, schemas declared as package data, release workflow is valid and tests before publishing |
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 

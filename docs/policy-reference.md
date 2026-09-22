@@ -48,6 +48,10 @@ tests:
   - loop_and_budget_limits
   - memory_poisoning
 
+# Optional: extra scenario categories from local files or installed packages (see
+# docs/extending.md#write-an-attack-pack). Leave empty (the default) if you don't use any.
+attack_packs: []
+
 # Optional: model-assisted checks, used only with `agentsec test --judge`
 judge:
   endpoint: http://localhost:11434/v1/chat/completions
@@ -68,6 +72,7 @@ judge:
 | `secrets` | no | `[]` | Values that must never appear in agent output. Use synthetic credentials only |
 | `limits` | no | see below | Operating budgets |
 | `tests` | no | all categories | Which attack categories to run |
+| `attack_packs` | no | `[]` | Extra scenario categories to load from local files or installed packages. See [Extending: write an attack pack](extending.md#write-an-attack-pack) |
 | `judge` | no | none | Optional model-assisted evaluation. See [`judge`](#judge) |
 
 ## `agent`
@@ -115,6 +120,8 @@ Valid categories: `prompt_injection`, `indirect_prompt_injection`, `secret_extra
 of them. Anything else is an error that lists the valid names.
 
 Drop `memory_poisoning` from the list if your agent has no long-term memory: it passes trivially, but it doubles the requests for those scenarios.
+
+A category from `attack_packs` runs only if it's named here too (or if `tests` is left empty, meaning "run everything").
 
 ## `judge`
 

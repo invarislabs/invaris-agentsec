@@ -101,3 +101,40 @@ def render(c: Comparison) -> str:
     lines.append("%d new, %d worse, %d fixed, %d better, %d unchanged" % (
         len(c.new), len(c.worse), len(c.fixed), len(c.better), len(c.unchanged)))
     return "\n".join(lines)
+
+
+def render_markdown(c: Comparison, baseline_label: str = "baseline", current_label: str = "current") -> str:
+    """Markdown for a PR comment or job summary. `agentsec compare BASELINE CURRENT --format` has no
+    markdown mode of its own; this is used by the GitHub Action's baseline-report comparison."""
+    lines: List[str] = ["Comparing `%s` against `%s`." % (baseline_label, current_label), ""]
+    for w in c.warnings:
+        lines.append("> \u26a0\ufe0f %s" % w)
+    if c.warnings:
+        lines.append("")
+    lines.append("| | Count |")
+    lines.append("|---|---:|")
+    for label, items in (("New", c.new), ("Severity increased", c.worse), ("Fixed", c.fixed),
+                         ("Severity decreased", c.better), ("Unchanged", c.unchanged),
+                         ("Not comparable", c.not_comparable)):
+        lines.append("| %s | %d |" % (label, len(items)))
+    lines.append("")
+
+    def section(title: str, items: List[Dict[str, Any]]) -> None:
+        if not items:
+            return
+        lines.append("<details%s>" % (" open" if title == "New findings" else ""))
+        lines.append("<summary>%s (%d)</summary>" % (title, len(items)))
+        lines.append("")
+        for f in sorted(items, key=lambda x: (-severity_rank(x["severity"]), x["id"])):
+            lines.append("- **%s** %s (`%s`)" % (f["severity"].upper(), f["title"], f["scenario_id"]))
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+
+    section("New findings", c.new)
+    section("Severity increased", c.worse)
+    section("Fixed", c.fixed)
+    section("Severity decreased", c.better)
+    if not (c.new or c.worse or c.fixed):
+        lines.append("No new or worsened findings.")
+    return "\n".join(lines)

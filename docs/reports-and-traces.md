@@ -9,6 +9,7 @@
 | `json` (default) | `report.json` | The complete record: findings, and the full trace of every scenario. Input for `agentsec replay` and for tooling |
 | `html` (default) | `report.html` | One self-contained page for people: summary cards, OWASP coverage, expandable findings with evidence, and every trace. No scripts or external assets, light and dark themes, works on a phone |
 | `markdown` | `summary.md` | A compact table of findings, used for the GitHub job summary |
+| `sarif` | `results.sarif` | SARIF 2.1.0, for [GitHub Code Scanning](github-actions.md#github-code-scanning-sarif) and other SARIF viewers |
 
 `agentsec replay` writes its own `report.json` to `.agentsec/replay/`.
 
@@ -17,7 +18,7 @@
 ```json
 {
   "report_schema_version": "1",
-  "tool": {"name": "invaris-agentsec", "version": "0.3.0"},
+  "tool": {"name": "invaris-agentsec", "version": "0.5.0"},
   "generated_at": "2026-09-20T09:15:02+00:00",
   "run_config": {
     "seed": 0,

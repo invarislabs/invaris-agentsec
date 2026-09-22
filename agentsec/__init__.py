@@ -1,6 +1,6 @@
 """Invaris AgentSec: adversarial security testing for autonomous AI agents."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from .api import AgentTarget, RunResult, SecuritySuite  # noqa: E402
 from .attacks import CATEGORIES as _CATEGORIES  # noqa: E402

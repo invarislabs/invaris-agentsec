@@ -41,6 +41,46 @@ Set `vector` carefully. It determines severity: forbidden actions triggered thro
 
 `PLANNED` in the same file holds category names that policies accept but that are not implemented yet. It is empty today. A name in `PLANNED` is skipped with a warning instead of raising an error.
 
+That's how to contribute a category to AgentSec itself. For a category specific to your own product that
+you don't want to publish (or to try one out without a pull request), write an attack pack instead.
+
+## Write an attack pack
+
+An attack pack is a normal Python module — a local file or an installed package — that adds one or more
+scenario categories without touching AgentSec's own code. Give it the same shape as a built-in category
+module, plus a `CATEGORIES` dict:
+
+```python
+# my_pack.py
+from agentsec.attacks.base import Scenario, ScenarioContext
+
+def build_my_category(ctx: ScenarioContext) -> list[Scenario]:
+    return [Scenario(id="my_category/one", category="my_category", title="...",
+                     description="...", user_message="...")]
+
+CATEGORIES = {"my_category": build_my_category}
+```
+
+Load it with `--attack-pack my_pack.py` (repeatable; also takes an installed module name), or add it to
+the policy so it loads every time:
+
+```yaml
+attack_packs:
+  - my_pack.py
+tests:
+  - my_category        # packs run only if listed here, or if `tests:` is left empty
+```
+
+A pack category cannot reuse a built-in category name or another pack's name in the same run; `agentsec`
+raises a clear error naming the clash. Give scenarios the same `category` as their `CATEGORIES` key and
+unique ids, and build at least one scenario per category — `agentsec` checks this and raises `PolicyError`
+otherwise, so a broken pack fails loudly rather than silently running nothing.
+
+Attack packs run as ordinary Python imports: **load only packs you wrote or trust**, the same as any
+dependency. The `SecuritySuite(attack_packs=...)` and `agentsec.attacks.packs.load_packs` Python API do the
+same thing for code that builds its own `ScenarioContext`. See `examples/attack_packs/brand_and_pii_pack.py`
+for a complete example, including a pack scenario that uses `ctx.canary` and `ctx.marker`.
+
 ## Add an evaluator
 
 An evaluator takes a scenario, its trace and the policy, and returns a list of `Finding` objects.
