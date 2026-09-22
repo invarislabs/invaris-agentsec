@@ -75,3 +75,35 @@ jobs:
           start-command: python examples/rag_agent/server.py --safe --port 8100
           wait-for-url: http://127.0.0.1:8100/
           artifact-name: agentsec-rag-agent
+
+  # Regression comparison: a clean baseline run, then a vulnerable run compared against it.
+  # The comparison must find new findings and fail the job. pr-comment is off because this
+  # workflow itself runs on real pull requests and must not post a comment on them.
+  agentsec-baseline-comparison:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: baseline
+        uses: ./
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --safe --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          out: .agentsec/baseline
+          artifact-name: agentsec-comparison-baseline
+      - id: compared
+        uses: ./
+        continue-on-error: true
+        with:
+          policy: examples/vulnerable_rag_agent/agentsec.yaml
+          start-command: python examples/vulnerable_rag_agent/server.py --port 8000
+          wait-for-url: http://127.0.0.1:8000/
+          baseline-report: ${{ steps.baseline.outputs.report-dir }}/report.json
+          compare-fail-on: high
+          pr-comment: "false"
+          artifact-name: agentsec-comparison-head
+      - name: The comparison must report regressions and fail the job
+        if: steps.compared.outputs.compare-exit-code != '1'
+        run: |
+          echo "::error::Expected compare-exit-code 1, got '${{ steps.compared.outputs.compare-exit-code }}'"
+          exit 1
