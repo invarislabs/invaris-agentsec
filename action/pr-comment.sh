@@ -44,13 +44,13 @@ existing="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" --p
   --jq ".[] | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null | head -n1 || true)"
 
 if [ -n "$existing" ]; then
-  if gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -f body=@"$body_file" >/dev/null 2>&1; then
+  if gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -F body=@"$body_file" >/dev/null 2>&1; then
     echo "Updated the existing AgentSec comparison comment (id $existing)."
   else
     echo "::warning title=AgentSec compare::failed to update pull-request comment $existing"
   fi
 else
-  if gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" -f body=@"$body_file" >/dev/null 2>&1; then
+  if gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" -F body=@"$body_file" >/dev/null 2>&1; then
     echo "Posted a new AgentSec comparison comment."
   else
     echo "::warning title=AgentSec compare::failed to post a pull-request comment"
