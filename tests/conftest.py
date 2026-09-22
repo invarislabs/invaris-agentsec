@@ -74,3 +74,15 @@ def rag_safe():
     server, url = _serve_rag(True)
     yield server, url
     server.shutdown()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_github_actions_output(monkeypatch):
+    """Tests that call `main([...])` in-process inherit the real process environment, not a
+    sandboxed one. Running this suite for real inside GitHub Actions (as release.yml and ci.yml
+    do) means GITHUB_ACTIONS/GITHUB_STEP_SUMMARY/GITHUB_OUTPUT point at the *actual* job's files,
+    so an in-process CLI call that writes annotations or a job summary would otherwise pollute
+    that real job's output. Clear them by default; a test that wants to exercise that behaviour
+    (see test_reports_phase2.py) sets them again itself with its own monkeypatch call."""
+    for var in ("GITHUB_ACTIONS", "GITHUB_STEP_SUMMARY", "GITHUB_OUTPUT"):
+        monkeypatch.delenv(var, raising=False)

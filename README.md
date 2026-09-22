@@ -6,7 +6,7 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development, but the local testing engine is functional and self-contained: 8 attack categories across 34 deterministic, replayable scenarios; JSON, HTML, Markdown and SARIF reports; a Python API and pytest plugin; MCP server scanning and MCP-based agent testing; LangChain/LangGraph support; regression comparison; a packaged GitHub Action with pull-request comparison comments and GitHub Code Scanning integration; and a plugin mechanism (attack packs) for adding your own scenarios without forking the project. The first PyPI release is being prepared. See [What's Built](#whats-built) for the full list and [Future Work](#future-work) for what's next. Interfaces marked as provisional may still change.
+> **Project status:** Early development, but the local testing engine is functional and self-contained: 8 attack categories across 34 deterministic, replayable scenarios; JSON, HTML, Markdown and SARIF reports; a Python API and pytest plugin; MCP server scanning and MCP-based agent testing; LangChain/LangGraph support; regression comparison; a packaged GitHub Action with pull-request comparison comments and GitHub Code Scanning integration; and a plugin mechanism (attack packs) for adding your own scenarios without forking the project. It's published on PyPI (`pip install invaris-agentsec`). See [What's Built](#whats-built) for the full list and [Future Work](#future-work) for what's next. Interfaces marked as provisional may still change.
 
 ## Why AgentSec?
 
@@ -56,7 +56,7 @@ Install the command-line tool:
 pip install invaris-agentsec
 ```
 
-The package is not on PyPI yet. Until the first release, install from a clone with `pip install -e .`.
+For a local checkout instead (to run the examples, or to contribute), install from a clone with `pip install -e .`.
 
 Create an `agentsec.yaml` policy:
 

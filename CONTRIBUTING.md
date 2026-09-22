@@ -39,4 +39,4 @@ By contributing you agree that your contribution is licensed under the Apache Li
 2. Run `pytest`, then `python -m build && python -m twine check dist/*` locally.
 3. Publish a GitHub release. `.github/workflows/release.yml` runs the tests, builds, and publishes to PyPI through trusted publishing.
 
-Before the first release, create the `invaris-agentsec` project on PyPI, add this repository as a trusted publisher, and create a `pypi` environment in the repository settings.
+The PyPI trusted publisher and the `pypi` environment (with a required reviewer, so every publish needs a manual approval) are already set up as of the 0.5.0 release; a new maintainer only needs steps 1-3 above.
