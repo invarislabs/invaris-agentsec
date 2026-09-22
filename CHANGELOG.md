@@ -3,6 +3,26 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## 0.5.1
+
+- Fix: a real bug in the pull-request comparison comment (`pr-comment`) meant it never posted the
+  actual comparison summary -- `action/pr-comment.sh` used `gh api -f body=@file`, and `-f` sends
+  the literal string `"@file"` rather than reading the file; it needed `-F`, which does. Every
+  comment this feature ever posted showed a placeholder path instead of real content. Fixed, and
+  covered by a test that pins the `-F` flag so this can't silently regress.
+- Fix: SARIF findings and the JSON report's `replay` hint showed a hardcoded `agentsec.yaml`
+  placeholder instead of the real policy file path used for the run. `build_report`,
+  `write_reports`, and the CLI now thread the real `--policy` path through.
+- New: `.github/workflows/verify-pr-comment.yml`, an opt-in (label-gated) workflow that verifies
+  the pull-request comment path against a real `pull_request` event and a real `GITHUB_TOKEN`,
+  rather than the fake `gh` binary the unit tests substitute.
+- Docs: the findings published by `.github/workflows/self-scan.yml` to this repo's own Code
+  Scanning tab are now explicitly flagged, in the docs and in the workflow's job summary, as demo
+  findings from the bundled vulnerable reference agent -- not real vulnerabilities in AgentSec.
+- `NOTICE` file clarifying that "Invaris" and "AgentSec" are trademarks not covered by the
+  Apache-2.0 license, and a Contributor License Agreement (`CLA.md`) with a CLA-bot check for
+  external pull requests.
+
 ## 0.5.0
 
 - Attack packs: load extra scenario categories from a local file or an installed package (`attack_packs:` in the policy, `agentsec test --attack-pack`, `SecuritySuite(attack_packs=...)`). See docs/extending.md#write-an-attack-pack and examples/attack_packs.
