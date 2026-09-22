@@ -9,7 +9,7 @@ description = "Adversarial security and reliability testing for autonomous AI ag
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE"]
 authors = [{name = "Invaris Labs"}]
 keywords = ["ai-agents", "security", "prompt-injection", "red-teaming", "mcp", "llm", "testing"]
 classifiers = [

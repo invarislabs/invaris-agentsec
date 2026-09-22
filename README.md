@@ -400,7 +400,8 @@ If AgentSec identifies a vulnerability in a third-party agent, framework, or int
 
 ## License
 
-Invaris AgentSec is licensed under the [Apache License 2.0](LICENSE).
+Invaris AgentSec is licensed under the [Apache License 2.0](LICENSE). "Invaris" and "AgentSec" are
+trademarks of Invaris Labs and are not covered by that license; see [NOTICE](NOTICE) for details.
 
 ## About Invaris Labs
 
