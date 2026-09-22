@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .. import __version__
 from ..evaluators import SEVERITIES
@@ -33,7 +33,7 @@ def _mask_obj(obj: Any, sensitive: List[str]) -> Any:
     return obj
 
 
-def build_report(suite: SuiteResult) -> Dict[str, Any]:
+def build_report(suite: SuiteResult, policy_path: Optional[str] = None) -> Dict[str, Any]:
     # Secrets (configured or detected) are masked everywhere in the report.
     sensitive = list(suite.policy.resolved_secrets())
     for f in suite.findings:
@@ -61,8 +61,9 @@ def build_report(suite: SuiteResult) -> Dict[str, Any]:
         "run_config": {
             "seed": suite.seed,
             "policy": suite.policy.to_report_dict(),
+            "policy_path": policy_path,
             "scenario_ids": [r.scenario.id for r in suite.results],
-            "replay": "agentsec test --policy <policy> --seed %d" % suite.seed,
+            "replay": "agentsec test --policy %s --seed %d" % (policy_path or "<policy>", suite.seed),
         },
         "summary": {
             "scenarios": len(suite.results),
@@ -81,10 +82,10 @@ def build_report(suite: SuiteResult) -> Dict[str, Any]:
     return _mask_obj(report, sensitive)
 
 
-def write_json_report(suite: SuiteResult, out_dir: str) -> str:
+def write_json_report(suite: SuiteResult, out_dir: str, policy_path: Optional[str] = None) -> str:
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "report.json")
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(build_report(suite), fh, indent=2, ensure_ascii=False)
+        json.dump(build_report(suite, policy_path), fh, indent=2, ensure_ascii=False)
         fh.write("\n")
     return path
