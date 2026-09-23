@@ -5,6 +5,7 @@ full list. Planned work is in [Future Work](../README.md#future-work) and is not
 
 | Document | Read it to... |
 |---|---|
+| [Why AgentSec](why-agentsec.md) | See real, sourced incidents, adoption survey data, and institutional AI bans that motivate this project |
 | [Getting started](getting-started.md) | Install AgentSec, run it against the bundled agent, read the output, use the CLI |
 | [Architecture](architecture.md) | Understand how a run works, what each component does, and why it is designed this way |
 | [Policy reference](policy-reference.md) | Write an `agentsec.yaml` for your own agent |

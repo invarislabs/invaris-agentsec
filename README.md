@@ -21,6 +21,11 @@ Traditional software follows explicitly written execution paths. AI agents inter
 - behave differently after a model, prompt, or tool update.
 Unit tests alone cannot adequately exercise these behaviours. AgentSec runs stateful adversarial scenarios, observes the complete execution trace, and verifies that security policies hold throughout the workflow.
 
+This isn't hypothetical: see [docs/why-agentsec.md](docs/why-agentsec.md) for real, sourced incidents (a
+dealership chatbot selling a $76,000 car for $1, a zero-click exploit against Microsoft 365 Copilot, an
+AI coding agent deleting a production database), the survey data on how little of this is actually
+tested for today, and the governments and research institutions that have restricted AI use outright.
+
 ## What AgentSec Tests
 
 The test suite covers:
