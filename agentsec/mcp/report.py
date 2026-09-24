@@ -4,26 +4,39 @@ import json
 import os
 import unicodedata
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .. import __version__
 from ..evaluators import SEVERITIES, Finding
 
 
 def build_mcp_report(target: str, server_info: Dict[str, Any], tools: List[Dict[str, Any]],
-                     findings: List[Finding]) -> Dict[str, Any]:
-    """Same shape as `agentsec test` reports where it matters, so `agentsec compare` works on it."""
+                     findings: List[Finding], resources: Optional[List[Dict[str, Any]]] = None,
+                     prompts: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """Same shape as `agentsec test` reports where it matters, so `agentsec compare` works on it.
+    `resources` and `prompts` are optional -- most servers only expose tools -- and default to none,
+    so existing callers that pass only `tools` and `findings` keep working unchanged."""
+    resources = resources or []
+    prompts = prompts or []
     by_sev = {s: 0 for s in SEVERITIES}
     for f in findings:
         by_sev[f.severity] += 1
     scenarios = []
-    for t in tools:
-        ids = [f.id for f in findings if f.scenario_id == "mcp/%s" % t.get("name")]
-        scenarios.append({"id": "mcp/%s" % t.get("name"), "category": "mcp_server", "title": str(t.get("name")),
+
+    def add(sid: str, title: str) -> None:
+        ids = [f.id for f in findings if f.scenario_id == sid]
+        scenarios.append({"id": sid, "category": "mcp_server", "title": title,
                           "vector": "tool_definition", "status": "findings" if ids else "passed",
                           "finding_ids": ids})
+
+    for t in tools:
+        add("mcp/%s" % t.get("name"), str(t.get("name")))
+    for r in resources:
+        add("mcp/resource:%s" % r.get("uri"), str(r.get("uri")))
+    for p in prompts:
+        add("mcp/prompt:%s" % p.get("name"), str(p.get("name")))
     known = {s["id"] for s in scenarios}
-    for f in findings:            # findings about tools that no longer exist (removed from a pin)
+    for f in findings:            # findings about items that no longer exist (removed from a pin)
         if f.scenario_id not in known:
             known.add(f.scenario_id)
             scenarios.append({"id": f.scenario_id, "category": "mcp_server", "title": f.scenario_id[4:],
@@ -34,10 +47,13 @@ def build_mcp_report(target: str, server_info: Dict[str, Any], tools: List[Dict[
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "run_config": {"seed": 0, "target": target, "server": server_info, "policy": {}},
         "summary": {"scenarios": len(scenarios), "findings": len(findings), "by_severity": by_sev,
-                    "tools": len(tools)},
+                    "tools": len(tools), "resources": len(resources), "prompts": len(prompts)},
         "findings": [f.to_dict() for f in findings],
         "scenarios": scenarios,
         "tools": [{"name": t.get("name"), "description": t.get("description")} for t in tools],
+        "resources": [{"uri": r.get("uri"), "name": r.get("name"), "description": r.get("description")}
+                      for r in resources],
+        "prompts": [{"name": p.get("name"), "description": p.get("description")} for p in prompts],
     }
 
 
@@ -59,10 +75,15 @@ def _clean(text: Any) -> str:
 def render_mcp_terminal(report: Dict[str, Any]) -> str:
     s = report["summary"]
     srv = report["run_config"].get("server") or {}
+    counts = ["%d tool(s)" % s["tools"]]
+    if s.get("resources"):
+        counts.append("%d resource(s)" % s["resources"])
+    if s.get("prompts"):
+        counts.append("%d prompt(s)" % s["prompts"])
     lines = ["MCP scan of %s%s" % (_clean(report["run_config"]["target"]),
                                     " (%s %s)" % (_clean(srv.get("name")), _clean(srv.get("version", ""))) if srv.get("name") else ""),
-             "%d tool(s), %d finding(s): %s" % (s["tools"], s["findings"],
-                                                 ", ".join("%d %s" % (s["by_severity"][k], k) for k in SEVERITIES)), ""]
+             "%s, %d finding(s): %s" % (", ".join(counts), s["findings"],
+                                        ", ".join("%d %s" % (s["by_severity"][k], k) for k in SEVERITIES)), ""]
     for f in sorted(report["findings"], key=lambda x: SEVERITIES.index(x["severity"])):
         lines.append("[%s] %s" % (f["severity"].upper(), _clean(f["title"])))
         lines.append("    %s" % f["observed_action"])

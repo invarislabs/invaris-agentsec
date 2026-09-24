@@ -11,7 +11,7 @@ from ..adapters import HTTPAgentAdapter
 from ..compare import CompareError, compare, load as load_compare_report, render as render_compare
 from ..evaluators import SEVERITIES, severity_rank
 from ..mcp import (MCPError, build_mcp_report, compare_pins, connect_http, connect_stdio, make_pins,
-                   render_mcp_terminal, scan_tools)
+                   render_mcp_terminal, scan_prompts, scan_resources, scan_tools)
 from ..mcp.report import write_mcp_report
 from ..policies import PolicyError, load_policy, policy_json_schema
 from ..reports import (FORMATS, annotations, append_step_summary, in_github_actions,
@@ -177,19 +177,27 @@ def _cmd_mcp_scan(args: argparse.Namespace) -> int:
         with client:
             client.initialize()
             tools = client.list_tools()
-            second = client.list_tools() if args.recheck else None
+            resources = client.list_resources()
+            prompts = client.list_prompts()
+            if args.recheck:
+                second_tools = client.list_tools()
+                second_resources = client.list_resources()
+                second_prompts = client.list_prompts()
+            else:
+                second_tools = None
             info = client.server_info
     except MCPError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return EXIT_ERROR
-    findings = scan_tools(tools, allowed, forbidden)
-    if second is not None:
-        findings += compare_pins(make_pins(tools), second)
+    findings = scan_tools(tools, allowed, forbidden) + scan_resources(resources) + scan_prompts(prompts)
+    if second_tools is not None:
+        findings += compare_pins(make_pins(tools, resources, prompts), second_tools, second_resources, second_prompts)
     if args.pin_write:
         with open(args.pin_write, "w", encoding="utf-8") as fh:
-            json.dump(make_pins(tools), fh, indent=2)
+            json.dump(make_pins(tools, resources, prompts), fh, indent=2)
             fh.write("\n")
-        print("Pinned %d tool definition(s) to %s" % (len(tools), args.pin_write))
+        print("Pinned %d tool, %d resource and %d prompt definition(s) to %s"
+              % (len(tools), len(resources), len(prompts), args.pin_write))
     elif args.pin:
         try:
             with open(args.pin, encoding="utf-8") as fh:
@@ -197,8 +205,8 @@ def _cmd_mcp_scan(args: argparse.Namespace) -> int:
         except (OSError, ValueError) as exc:
             print("error: cannot read pin file %s: %s" % (args.pin, exc), file=sys.stderr)
             return EXIT_ERROR
-        findings += compare_pins(pins, tools)
-    report = build_mcp_report(args.command or args.url, info, tools, findings)
+        findings += compare_pins(pins, tools, resources, prompts)
+    report = build_mcp_report(args.command or args.url, info, tools, findings, resources, prompts)
     path = write_mcp_report(report, args.out)
     print(render_mcp_terminal(report))
     print("\nReport written to %s" % path)
