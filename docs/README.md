@@ -38,7 +38,7 @@ rules cannot see, and its findings are labelled as model-assisted.
 - 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
 - Terminal, JSON, HTML, Markdown and SARIF reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
-- `agentsec mcp scan` to check MCP server tool definitions (static, never calls tools), and `agentsec test --mcp-listen` to test an agent that uses MCP.
+- `agentsec mcp scan` to check MCP server tool, resource and prompt definitions (static, never calls, reads or fetches any of them), and `agentsec test --mcp-listen` to test an agent that uses MCP.
 - `agentsec compare` to diff two reports and flag regressions; the packaged GitHub Action can compare a run against a baseline report and post the result as a pull-request comment.
 - `attack_packs` / `agentsec test --attack-pack` to add your own scenario categories without forking AgentSec.
 - `--format sarif` writes a SARIF 2.1.0 report for GitHub Code Scanning, alongside the JSON, HTML and Markdown formats.

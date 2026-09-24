@@ -1,10 +1,19 @@
 # MCP server scanning
 
-`agentsec mcp scan` connects to an [MCP](https://modelcontextprotocol.io) server, lists its tools and checks
-their definitions for the ways a malicious or compromised server attacks the agent that connects to it.
+`agentsec mcp scan` connects to an [MCP](https://modelcontextprotocol.io) server, lists its tools,
+resources and prompts, and checks their definitions for the ways a malicious or compromised server
+attacks the agent that connects to it.
 
-**It never calls a tool.** It only sends `initialize` and `tools/list`, so scanning cannot trigger a server's side effects.
-(It does start the server if you give `--command`, so only scan servers you are willing to run.)
+**It never calls a tool, reads a resource or fetches a prompt.** It only sends `initialize`,
+`tools/list`, `resources/list` and `prompts/list`, so scanning cannot trigger a server's side effects.
+Resources and prompts are optional MCP capabilities: a server that doesn't implement them just
+contributes an empty list, not an error. (Scanning does start the server if you give `--command`, so
+only scan servers you are willing to run.)
+
+Tools get the most scrutiny -- they are what an agent actually calls -- but resources and prompts are
+just as capable of carrying a hidden instruction: a resource's `description` and a prompt's
+`description`/argument descriptions are handed to the model the same way a tool's description is, so
+the same instruction-poisoning patterns apply to all three.
 
 ## Usage
 
@@ -30,7 +39,8 @@ Options: `--out DIR` (report directory, default `.agentsec`, file `mcp-report.js
 `--fail-on low|medium|high|critical|none`. Exit codes match `agentsec test`: 0 clean, 1 findings at or above
 the threshold, 2 could not connect or read a file.
 
-Try it on the bundled demo server, which has clean, poisoned and rug-pull modes:
+Try it on the bundled demo server, which has clean, poisoned and rug-pull modes (each also has a
+resource and a prompt, and the poisoned mode poisons one of each too):
 
 ```bash
 agentsec mcp scan --command "python examples/mcp_servers/server.py"                 # clean, exit 0
@@ -42,31 +52,44 @@ agentsec mcp scan --command "python examples/mcp_servers/server.py --rugpull" --
 
 | Rule | Severity | Meaning |
 |---|---|---|
-| `mcp_tool_poisoning` | critical / high | Instructions aimed at the model in a description or anywhere in the input schema ("ignore previous instructions", "do not tell the user", `<IMPORTANT>` tags, extra steps around the call). Critical when combined with references to secret files or sending data out; high otherwise |
+| `mcp_tool_poisoning`, `mcp_resource_poisoning`, `mcp_prompt_poisoning` | critical / high | Instructions aimed at the model in a description, input schema, or (for prompts) an argument description -- "ignore previous instructions", "do not tell the user", `<IMPORTANT>` tags, extra steps around the call, or a pointer to "full instructions" at an external URL the scan can't inspect. Critical when combined with references to secret files or sending data out; high otherwise |
 | `mcp_invisible_characters` | high | Zero-width, bidirectional or tag characters that can hide text from a human reviewer |
+| `mcp_confusable_tool_name` | high | A tool name is a visual look-alike of another tool on the same server, built from Cyrillic, Greek or fullwidth characters that render the same as Latin ones -- a homoglyph impersonation of a tool the user or agent already trusts |
+| `mcp_annotation_mismatch` | medium | A tool's `annotations.readOnlyHint` or `destructiveHint` contradicts what its own name or description says it does |
 | `mcp_tool_shadowing` | medium | One tool's description gives instructions about how to use another tool |
 | `mcp_sensitive_reference` | medium | A definition names credentials or secret files (`~/.ssh`, `.env`, API keys) |
+| `mcp_resource_uri_credentials` | medium | A resource URI embeds a username and password |
 | `mcp_forbidden_tool_exposed` | high | The server offers a tool in your policy's `forbidden_actions` |
 | `mcp_unlisted_tool` | medium | With a policy: a tool not in `allowed_tools` |
-| `mcp_duplicate_tool` | medium | The same tool name is listed twice |
-| `mcp_definition_changed` | high | With `--pin` or `--recheck`: a definition differs from the pinned or earlier one |
-| `mcp_tool_added`, `mcp_tool_removed` | medium, low | With `--pin`: the tool list changed |
+| `mcp_duplicate_tool`, `mcp_duplicate_resource`, `mcp_duplicate_prompt` | medium | The same name (or resource URI) is listed twice |
+| `mcp_definition_changed` | high | With `--pin` or `--recheck`: a tool, resource or prompt definition differs from the pinned or earlier one |
+| `mcp_tool_added`/`removed`, `mcp_resource_added`/`removed`, `mcp_prompt_added`/`removed` | medium, low | With `--pin`: the tool, resource or prompt list changed |
 | `mcp_high_impact_tool` | low | Without a policy: a tool named like shell, delete, payment or email |
 | `mcp_unconstrained_input` | low | A free-form `command`, `sql`, `code`-style string with no enum, pattern or length limit |
-| `mcp_oversized_description` | low | A description over 2000 characters |
+| `mcp_oversized_description` | low | A tool, resource or prompt description over 2000 characters |
 
 Findings are mapped to OWASP agentic categories (mostly ASI04, supply chain) like all others, and the
 report has the same `findings` and `scenarios` layout as `agentsec test`, so `agentsec compare` works on two
-`mcp-report.json` files.
+`mcp-report.json` files. The report's `summary` also breaks out `tools`, `resources` and `prompts` counts,
+and `--pin-write`/`--pin` pin all three kinds together in one file (a pin file from before resources and
+prompts were scanned still works -- it just has nothing pinned for those two yet).
 
 ## Limits: read before relying on it
 
 - These are **pattern checks on definitions**. A clean result does not mean a server is safe. A server can
-  behave badly in `tools/call` results, be obfuscated beyond the patterns, or be benign today and change later.
+  behave badly in `tools/call`, `resources/read` or `prompts/get` results, be obfuscated beyond the
+  patterns, or be benign today and change later.
 - The instruction patterns are English-only and heuristic. Expect some false positives and misses.
+- The confusable-name check uses a compact, hand-picked map of common Cyrillic, Greek and fullwidth
+  look-alikes, not the full Unicode confusables table -- it catches the homoglyphs attackers actually use
+  for this, not every codepoint that could theoretically be confused with another.
 - `--recheck` and `--pin` catch changes only between the moments you list. A server that changes definitions
   only for certain clients, times or after tool calls would not be caught.
-- Server output at run time (tool results) is covered by the agent-side `tool_output_poisoning` scenarios, not by this scanner.
+- A resource's or prompt's *content* (`resources/read`, `prompts/get`) is never fetched, the same way a
+  tool is never called -- only what `resources/list` and `prompts/list` themselves return is scanned. A
+  server that serves a clean listing but a poisoned resource body or rendered prompt would not be caught
+  here; that's server output at run time, covered on the agent side by the `tool_output_poisoning` and
+  `unsafe_retrieved_documents` scenarios, not by this scanner.
 - The scanner covers the server side. To test an agent that *uses* MCP servers, see the next section.
 - Verified against the bundled demo server and a test HTTP server, not against a range of real-world MCP servers.
 

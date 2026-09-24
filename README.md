@@ -156,7 +156,7 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions. The packaged GitHub Action wires this into pull requests automatically (`baseline-report`), posting and updating a PR comment with what's new or worse; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
 
-**MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools (never calls them) and flags poisoned descriptions, hidden characters, shadowing and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
+**MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools, resources and prompts (never calls, reads or fetches any of them) and flags poisoned descriptions, hidden characters, tool shadowing, homoglyph tool-name impersonation, lying read-only/destructive annotations, and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
 
 **MCP-connected agents.** `agentsec test --mcp-listen 127.0.0.1:8765` makes AgentSec the MCP server your agent uses, delivering the same adversarial scenarios through MCP tool results.
 
@@ -304,7 +304,7 @@ tests/                # Unit and end-to-end tests (177+ tests)
 ### Frameworks and protocols
 
 - [x] `LangChainAdapter` for LangChain and LangGraph agents, run in-process, duck-typed so AgentSec never imports the framework itself
-- [x] `agentsec mcp scan`: statically scans an MCP server's tool list for poisoned descriptions, invisible characters, tool shadowing, forbidden or unlisted tools, and rug pulls (pin a server's definitions and compare across runs)
+- [x] `agentsec mcp scan`: statically scans an MCP server's tools, resources and prompts for poisoned descriptions, invisible characters, tool shadowing, homoglyph tool-name impersonation, lying annotations, forbidden or unlisted tools, and rug pulls across all three kinds (pin a server's definitions and compare across runs)
 - [x] `agentsec test --mcp-listen`: AgentSec acts as the MCP server an agent connects to, delivering the same adversarial scenarios over MCP tool results
 - [x] Agents that run tools server-side and stream their replies (server-sent events, `x_agentsec` events for reporting server-side tool calls and memory keys)
 
