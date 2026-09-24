@@ -19,6 +19,7 @@ Traditional software follows explicitly written execution paths. AI agents inter
 - preserve malicious instructions in memory;
 - enter an expensive or non-terminating loop; or
 - behave differently after a model, prompt, or tool update.
+
 Unit tests alone cannot adequately exercise these behaviours. AgentSec runs stateful adversarial scenarios, observes the complete execution trace, and verifies that security policies hold throughout the workflow.
 
 This isn't hypothetical: see [docs/why-agentsec.md](docs/why-agentsec.md) for real, sourced incidents (a
@@ -317,8 +318,7 @@ tests/                # Unit and end-to-end tests (177+ tests)
 ## Future Work
 
 Everything below is not yet built. It splits into a hosted platform, which is commercial territory kept
-separate from the open-source engine (see [Open Source and Commercial Direction](#open-source-and-commercial-direction)),
-and engine-level coverage gaps that stay in scope for AgentSec itself.
+separate from the open-source engine, and engine-level coverage gaps that stay in scope for AgentSec itself.
 
 ### Hosted platform
 
@@ -342,10 +342,15 @@ testing without a hosted dashboard; see [GitHub Actions](docs/github-actions.md#
 - [ ] MCP-specific attacks beyond hostile tool results and decoy tools; see [MCP testing](docs/mcp-testing.md)
 - [ ] Dedicated adapters for other agent frameworks (CrewAI, AutoGen, LlamaIndex, OpenAI Agents SDK) — the generic `CallableAdapter` covers them today; see [Frameworks](docs/frameworks.md#any-other-framework)
 
-Real-world verification is also open: the packaged GitHub Action, the LangChain integration and the SARIF/Code
-Scanning upload are exercised by the test suite but have not yet been run against real GitHub Actions, real
-LLM-backed agents, or a real MCP server in production. See [Testing](docs/testing.md) for exactly what is
-and isn't covered.
+Real-world verification: the packaged GitHub Action -- via the actual public `uses: invarislabs/invaris-agentsec@main`
+path, not a local reference -- has been run repeatedly on real GitHub Actions infrastructure (see
+[`.github/workflows/self-scan.yml`](.github/workflows/self-scan.yml)), and its GitHub Code Scanning integration
+is confirmed working end to end: the generated SARIF validates, uploads successfully, and real findings appear
+in this repo's own Security > Code scanning tab. (Those alerts are visible to signed-in users with access to
+the repository, not to signed-out visitors -- a GitHub platform behavior, not an AgentSec one, worth knowing
+before relying on a bare link in a demo.) Still open: the LangChain/LangGraph integration and MCP server
+testing are exercised by the test suite but have not yet been run against a real LLM-backed agent or a real
+MCP server in production. See [Testing](docs/testing.md) for exactly what is and isn't covered.
 
 ## Intended Users
 
@@ -359,21 +364,6 @@ AgentSec is being designed for:
 - Financial and blockchain teams building transaction-capable agents
 - Researchers studying agent reliability and adversarial behaviour
 
-## Open Source and Commercial Direction
-
-The local testing engine will remain open source. Invaris Labs plans to build optional commercial capabilities around it, including:
-
-- Continuous cloud-based security testing
-- Collaborative dashboards and regression history
-- Private and organization-specific attack suites
-- Enterprise self-hosting and access controls
-- Security assessments and remediation support
-- Compliance-ready evidence and reporting
-
-The open-source engine should remain useful on its own; the CLI-scoped building blocks for several of these
-(private attack libraries, pull-request regression testing) already ship in the engine, described above. Paid
-services will focus on scale, collaboration, continuous operation, and enterprise requirements.
-
 ## Security Model
 
 AgentSec executes potentially adversarial content against systems that may have access to real tools and data. During early development:
@@ -384,6 +374,7 @@ AgentSec executes potentially adversarial content against systems that may have 
 - use sandboxed or mocked tools;
 - enforce strict spending and execution limits; and
 - never point experimental tests at production agents.
+
 A detailed threat model will be published before the first public release. The vulnerability-reporting policy is in [SECURITY.md](SECURITY.md).
 
 ## Contributing
@@ -397,6 +388,7 @@ The project is in early development. Contributions will be welcomed in areas suc
 - Trace schemas and interoperability
 - Sandboxing and safe execution
 - Documentation and vulnerable examples
+
 To develop locally, run `pip install -e ".[dev]"` and then `pytest`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the guidelines.
 
 ## Responsible Disclosure
