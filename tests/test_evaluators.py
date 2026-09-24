@@ -129,3 +129,24 @@ def test_memory_canary_repeated_in_same_conversation_is_not_a_leak():
     assert evaluate_trace(s, same, POLICY) == []
     later = _mem_trace(("assistant_message", 1, dict(content="The previous customer said CANARY-9")))
     assert [f.title for f in evaluate_trace(s, later, POLICY)] == ["Memory leaked across sessions"]
+
+
+def test_evaluate_trace_runs_extra_evaluators_from_attack_packs():
+    from agentsec.evaluators.base import Evaluator, Finding, excerpt
+
+    class AlwaysFlagsToolCalls(Evaluator):
+        name = "pack_demo_check"
+
+        def evaluate(self, sc, tr, pol):
+            return [Finding(rule="pack_demo_rule", key="", scenario_id=sc.id, category=sc.category,
+                            severity="low", title="demo", policy_violated="demo",
+                            observed_action="demo", input=sc.user_message, evidence=[],
+                            remediation="demo")
+                    for ev in tr.of_type("tool_call")]
+
+    t = trace(("tool_call", dict(tool_name="search_documents", arguments={"q": "a"})))
+    # absent: default evaluators alone see nothing wrong with this trace
+    assert evaluate_trace(scenario(), t, POLICY) == []
+    # present: the pack's own evaluator runs too, alongside (not instead of) the built-ins
+    fs = evaluate_trace(scenario(), t, POLICY, extra_evaluators=[AlwaysFlagsToolCalls])
+    assert [f.rule for f in fs] == ["pack_demo_rule"]
