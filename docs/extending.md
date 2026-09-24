@@ -81,6 +81,49 @@ dependency. The `SecuritySuite(attack_packs=...)` and `agentsec.attacks.packs.lo
 same thing for code that builds its own `ScenarioContext`. See `examples/attack_packs/brand_and_pii_pack.py`
 for a complete example, including a pack scenario that uses `ctx.canary` and `ctx.marker`.
 
+### Give a pack its own evaluator
+
+Most pack categories need no custom evaluator: a scenario that names a forbidden tool, or plants a marker
+or canary, is already caught by AgentSec's built-in evaluators (see "Add an evaluator" below) the same way
+a built-in category would be. A pack needs its own evaluator only when the danger is in a tool call's
+*arguments* rather than which tool got called or whether a marker appeared -- for example, a legitimate,
+allowed `install_package` call that names a typosquatted package, or an allowed `write_file` call whose
+content disables a security control. Export an optional `EVALUATORS` list alongside `CATEGORIES`:
+
+```python
+# my_pack.py
+from agentsec.evaluators.base import Evaluator, Finding, excerpt
+
+class MyPackCheck(Evaluator):
+    name = "my_pack_check"
+
+    def evaluate(self, scenario, trace, policy):
+        findings = []
+        for ev in trace.of_type("tool_call"):
+            if ev.tool_name == "install_package" and "danger" in str(ev.arguments):
+                findings.append(Finding(rule="my_pack_rule", key="", scenario_id=scenario.id,
+                                       category=scenario.category, severity="high", title="...",
+                                       policy_violated="...", observed_action="...",
+                                       input=scenario.user_message, evidence=excerpt(trace, ev.seq),
+                                       remediation="..."))
+        return findings
+
+CATEGORIES = {"my_category": ...}
+EVALUATORS = [MyPackCheck]
+```
+
+Each class must subclass `Evaluator` (see "Add an evaluator" below for the full shape); `agentsec` checks
+this the same way it checks `CATEGORIES`, and raises `PolicyError` naming the pack otherwise. Every pack's
+evaluators run for every scenario in the run, alongside the built-in ones and before an optional `--judge`
+review -- they are not scoped to the pack's own categories, the same way built-in evaluators are not scoped
+to one built-in category. Findings from a pack evaluator have no OWASP mapping unless its `rule` id happens
+to match one AgentSec already knows about; that's fine; the report and SARIF output show them regardless.
+See `examples/attack_packs/coding_agent_pack.py` for a complete example with two pack evaluators
+(a typosquatted-dependency check and an insecure-patch-content check) alongside a category that needs no
+custom evaluator at all, or `examples/attack_packs/browser_agent_pack.py` for the same pattern applied to
+a lookalike-domain check. See [Domain attack packs](domain-attack-packs.md) for both, plus the design for
+three more domains.
+
 ## Add an evaluator
 
 An evaluator takes a scenario, its trace and the policy, and returns a list of `Finding` objects.

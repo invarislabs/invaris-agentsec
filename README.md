@@ -312,7 +312,7 @@ tests/                # Unit and end-to-end tests (177+ tests)
 
 - [x] Python API (`AgentTarget`, `SecuritySuite`) mirroring the CLI, for running scenarios from code
 - [x] A pytest plugin (`agentsec_run` fixture, `--agentsec-policy`)
-- [x] Attack packs: load extra scenario categories from a local file or an installed package without forking AgentSec (`attack_packs:` in the policy, or `agentsec test --attack-pack`), validated and name-collision-checked at load time
+- [x] Attack packs: load extra scenario categories from a local file or an installed package without forking AgentSec (`attack_packs:` in the policy, or `agentsec test --attack-pack`), validated and name-collision-checked at load time. A pack can also ship its own `EVALUATORS` for checks the built-in ones can't express -- two full reference packs, [coding agents](examples/attack_packs/coding_agent_pack.py) and [browser agents](examples/attack_packs/browser_agent_pack.py), plus the pattern specified for RAG, customer-support and on-chain agents in [Domain attack packs](docs/domain-attack-packs.md)
 - [x] Two intentionally vulnerable reference agents (rule-based, RAG-backed), each with a hardened variant that passes the full suite, plus a demo MCP server and an MCP-connected reference agent
 
 ## Future Work
