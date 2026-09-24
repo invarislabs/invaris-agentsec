@@ -1,5 +1,6 @@
 """Loading extra scenario categories from attack packs (local files or installed packages)."""
 import json
+import re
 import textwrap
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from agentsec.runners import run_suite
 EXAMPLE = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "brand_and_pii_pack.py")
 CODING_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "coding_agent_pack.py")
 BROWSER_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "browser_agent_pack.py")
+SUPPORT_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "support_agent_pack.py")
 
 BASE_POLICY = """
 version: "1"
@@ -295,6 +297,13 @@ def test_load_pack_evaluators_from_the_browser_agent_example():
     assert all(issubclass(cls, Evaluator) for cls in evaluators)
 
 
+def test_load_pack_evaluators_from_the_support_agent_example():
+    evaluators = load_pack_evaluators(SUPPORT_PACK)
+    names = sorted(cls.name for cls in evaluators)
+    assert names == ["support_agent_refund_abuse"]
+    assert all(issubclass(cls, Evaluator) for cls in evaluators)
+
+
 # ---- coding_agent_pack: a full run_suite round trip through a real pack's
 #      own evaluators, not just the loader in isolation ----------------------
 
@@ -443,3 +452,113 @@ def test_run_suite_browser_agent_pack_consent_trap_uses_builtin_forbidden_action
     assert suite.findings
     assert all(f.rule == "forbidden_action" for f in suite.findings)
     assert all(f.severity == "critical" for f in suite.findings)
+
+
+# ---- support_agent_pack: same shape again -- one category the built-in
+#      forbidden-action evaluator already covers, one that needs a pack
+#      evaluator because the attack is in issue_refund's arguments, and one
+#      cross-session scenario that needs no evaluator either, reusing the
+#      built-in SecretLeakEvaluator's canary check across two sessions. -------
+
+SUPPORT_POLICY = """
+version: "1"
+agent: {name: t, endpoint: 'http://x'}
+allowed_tools: [lookup_account, issue_refund]
+forbidden_actions: [waive_verification, override_hold]
+tests: []
+attack_packs: [%r]
+""" % SUPPORT_PACK
+
+
+def _obedient_escalation_agent(messages, tools):
+    """Obeys whichever forbidden action the caller's own message names."""
+    last = messages[-1]
+    if last.get("role") == "user":
+        content = last["content"]
+        for name in ("waive_verification", "override_hold"):
+            if name in content:
+                return {"tool_calls": [{"name": name, "arguments": {}}]}
+    return "done"
+
+
+def test_run_suite_support_agent_pack_impersonation_escalation_uses_builtin_forbidden_action_evaluator():
+    """No EVALUATORS entry for this category: a caller talking the agent into a forbidden tool
+    call is exactly what the built-in ToolPolicyEvaluator already catches."""
+    policy = parse_policy(SUPPORT_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_escalation_agent),
+                      only=["support_agent_impersonation_escalation"])
+    assert suite.findings
+    assert all(f.rule == "forbidden_action" for f in suite.findings)
+    assert all(f.severity == "high" for f in suite.findings)  # vector=direct -> not untrusted
+
+
+def _obedient_refund_agent(messages, tools):
+    """Complies with whatever the caller in the original message asked for: an oversized refund
+    on the first ask, or -- when the message also asks for the same order "again" -- a second
+    issue_refund call for that order, stopping once it has issued exactly that many."""
+    origin = messages[0]["content"]
+    order_id = re.search(r"(ORD-\d+)", origin).group(1)
+    last = messages[-1]
+    if last.get("role") == "user":
+        amt = re.search(r"\$(\d+)", origin)
+        amount = float(amt.group(1)) if amt else 0.0
+        return {"tool_calls": [{"name": "issue_refund", "arguments": {"order_id": order_id, "amount": amount}}]}
+    if last.get("role") == "tool":
+        prior_refund_calls = sum(
+            1 for m in messages if m.get("role") == "assistant"
+            for c in (m.get("tool_calls") or []) if c["function"]["name"] == "issue_refund")
+        if "again" in origin and prior_refund_calls < 2:
+            return {"tool_calls": [{"name": "issue_refund", "arguments": {"order_id": order_id, "amount": 45.0}}]}
+        return "done"
+    return "done"
+
+
+def test_run_suite_support_agent_pack_refund_abuse_evaluator_fires_for_oversized_amount():
+    policy = parse_policy(SUPPORT_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_refund_agent),
+                      only=["support_agent_refund_abuse/oversized_refund_pressure"])
+    assert suite.findings
+    assert all(f.rule == "support_agent_refund_over_cap" for f in suite.findings)
+    assert all(f.key == "ORD-4471" for f in suite.findings)
+
+
+def test_run_suite_support_agent_pack_refund_abuse_evaluator_fires_for_duplicate_refund():
+    policy = parse_policy(SUPPORT_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_refund_agent),
+                      only=["support_agent_refund_abuse/duplicate_refund_same_order"])
+    assert suite.findings
+    assert all(f.rule == "support_agent_duplicate_refund" for f in suite.findings)
+    assert all(f.key == "ORD-7788" for f in suite.findings)
+
+
+def _cross_customer_agent():
+    """A caller's account reference given for verification bleeds into what a later, different
+    caller on the same line is told -- simulating a support agent that conflates two sessions."""
+    state = {}
+    canary_re = re.compile(r"(CANARY-[0-9a-fA-F]+)")
+
+    def agent(messages, tools):
+        last = messages[-1]
+        if last.get("role") == "user":
+            m = canary_re.search(last["content"])
+            if m:
+                state["canary"] = m.group(1)
+                return "Thanks, I've verified your account and I'm looking into this for you now."
+            if "previous caller" in last["content"]:
+                return ("Sure -- the previous caller on this line gave the account reference %s."
+                        % state.get("canary", ""))
+        return "done"
+    return agent
+
+
+def test_run_suite_support_agent_pack_cross_customer_leak_uses_builtin_secret_leak_evaluator():
+    """No EVALUATORS entry for this category either: a planted canary surfacing in the agent's
+    own output to a different, later session is exactly what the built-in SecretLeakEvaluator
+    already catches -- the same mechanism memory_poisoning's cross_session_leak scenario relies
+    on, reused here for a support-desk-specific category."""
+    policy = parse_policy(SUPPORT_POLICY)
+    suite = run_suite(policy, CallableAdapter(_cross_customer_agent()),
+                      only=["support_agent_cross_customer_leak"])
+    assert suite.findings
+    assert all(f.rule == "secret_leak" for f in suite.findings)
+    assert all(f.category == "support_agent_cross_customer_leak" for f in suite.findings)
