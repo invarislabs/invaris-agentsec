@@ -285,6 +285,7 @@ tests/                # Unit and end-to-end tests (177+ tests)
 - [x] YAML security policies, validated against a JSON Schema (`agentsec schema policy`)
 - [x] Eight adversarial test categories: direct prompt injection, indirect prompt injection, secret extraction, unauthorized tool use, tool-output poisoning, unsafe retrieved documents, loop-and-budget limits, and memory poisoning (four two-session scenarios)
 - [x] Step, tool-call, token, time and cost limits, with pricing-based cost tracking
+- [x] Policy-declared spend limits (`spend_limits`) and destination-address allowlists (`address_allowlist`) for tools that move money, enforced generically against any named tool's own arguments rather than tied to a specific integration; see [Policy reference](docs/policy-reference.md#spend_limits)
 - [x] Deterministic evaluators, plus an optional model-assisted judge for paraphrased or borderline leaks
 - [x] Normalized execution traces recording every prompt, tool call, tool result and state change
 - [x] Findings mapped to the OWASP Top 10 for Agentic Applications (ASI01-ASI10)
@@ -334,7 +335,6 @@ testing without a hosted dashboard; see [GitHub Actions](docs/github-actions.md#
 ### Engine and coverage
 
 - [ ] Multi-agent adversarial simulation
-- [ ] Wallet and on-chain transaction policies
 - [ ] Agent identity and delegation testing
 - [ ] Stateful, multi-turn campaign generation
 - [ ] Cross-agent failure-propagation analysis

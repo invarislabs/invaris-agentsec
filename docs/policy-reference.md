@@ -38,6 +38,17 @@ limits:
   max_seconds: 120
   max_cost_usd: 0.50
 
+# Optional: caps and destination checks for tools that move money (see `spend_limits` and
+# `address_allowlist` below). Omit both entirely for an agent with no such tools.
+spend_limits:
+  tools: [send_transaction]
+  max_transaction: 5000
+  max_total: 20000
+
+address_allowlist:
+  tools: [send_transaction]
+  addresses: ["0x4a3fab1e2e9c1f8ba6d9e17b1c3f5a8d2e6b9c10"]
+
 tests:
   - prompt_injection
   - indirect_prompt_injection
@@ -71,6 +82,8 @@ judge:
 | `forbidden_actions` | no | `[]` | Actions that must never be attempted. Also used as the names in attack payloads |
 | `secrets` | no | `[]` | Values that must never appear in agent output. Use synthetic credentials only |
 | `limits` | no | see below | Operating budgets |
+| `spend_limits` | no | none | Per-transaction and running-total caps on tools that move money. Not enforced unless present |
+| `address_allowlist` | no | none | Deny-by-default destination check for tools that move money. Not enforced unless present |
 | `tests` | no | all categories | Which attack categories to run |
 | `attack_packs` | no | `[]` | Extra scenario categories to load from local files or installed packages. See [Extending: write an attack pack](extending.md#write-an-attack-pack) |
 | `judge` | no | none | Optional model-assisted evaluation. See [`judge`](#judge) |
@@ -102,6 +115,39 @@ judge:
 | `max_cost_usd` | none | After the run, when cost is known |
 
 Integer limits must be whole numbers of at least 1. Seconds and cost must be at least 0.
+
+## `spend_limits`
+
+Caps a monetary amount that a named tool's call may move. Not tied to any particular integration
+(on-chain, banking, payments, ...): which tools and which argument name carries the amount are
+declared here, then checked against the tool call's own arguments by the built-in
+`SpendPolicyEvaluator`.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `tools` | required | Tool names this applies to. Must name at least one |
+| `amount_field` | `amount` | The tool call argument holding the monetary amount |
+| `max_transaction` | none | Flags a single call over this amount (`spend_limit_exceeded`, critical) |
+| `max_total` | none | Flags once, at the call where the running total across the trace first exceeds this amount (`spend_total_exceeded`, high) |
+| `currency` | `USD` | Label only, used in finding titles and messages |
+
+At least one of `max_transaction`/`max_total` is required. A call whose amount argument is missing
+or not a number is ignored rather than treated as zero.
+
+## `address_allowlist`
+
+Restricts a named tool's destination argument to a fixed set of known-good values (a wallet
+address, an IBAN, an account id, ...), enforced by the built-in `AddressAllowlistEvaluator`.
+Deny-by-default: any value not in `addresses` is flagged as `address_not_allowlisted` (critical) --
+independent of whether it merely resembles a known-good one, which is what makes it stronger than
+a lookalike/typosquat heuristic.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `tools` | required | Tool names this applies to. Must name at least one |
+| `address_field` | `to` | The tool call argument holding the destination |
+| `addresses` | required | The allowed values. Must list at least one |
+| `case_sensitive` | `false` | Whether matching is case-sensitive |
 
 ## `secrets`
 
@@ -147,3 +193,4 @@ Optional and off by default. The section is only read when you run `agentsec tes
 - Set `retrieval_tools` if only some tools return untrusted content, so writes like `create_draft` are not fed attack payloads.
 - Step and tool-call limits apply to each conversation, so a memory scenario gets a fresh budget for its follow-up.
 - Keep limits realistic for the agent's normal behavior. A limit set below what a healthy task needs will produce findings on benign runs.
+- Declare `spend_limits`/`address_allowlist` for any tool that moves money or picks a destination, even if you also load a domain attack pack (see [Domain attack packs](domain-attack-packs.md)): a pack's own scenario-specific evaluator and these core, domain-agnostic checks are complementary and both run.

@@ -4,16 +4,19 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from .schema import (JUDGE_CHECKS, POLICY_VERSION, AgentConfig, JudgeConfig, Limits, Policy, PolicyError,
-                     Pricing, _sha)
+from .schema import (JUDGE_CHECKS, POLICY_VERSION, AddressAllowlist, AgentConfig, JudgeConfig, Limits, Policy,
+                     PolicyError, Pricing, SpendLimits, _sha)
 
-_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "tests", "attack_packs", "judge"}
+_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "spend_limits",
+       "address_allowlist", "tests", "attack_packs", "judge"}
 _JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
           "declare_tools", "stream", "retrieval_tools", "pricing"}
 _LIMITS = {"max_steps", "max_tool_calls", "max_repeated_calls", "max_tokens",
            "max_seconds", "max_cost_usd"}
 _PRICING = {"input_per_1k", "output_per_1k"}
+_SPEND_LIMITS = {"tools", "amount_field", "max_transaction", "max_total", "currency"}
+_ADDRESS_ALLOWLIST = {"tools", "address_field", "addresses", "case_sensitive"}
 
 
 def _check_keys(section: str, data: Dict[str, Any], allowed: set) -> None:
@@ -35,6 +38,14 @@ def _str_list(section: str, value: Any) -> List[str]:
     return list(value)
 
 
+def _string(section: str, value: Any, default: str) -> str:
+    if value is None:
+        return default
+    if not isinstance(value, str) or not value:
+        raise PolicyError("%s must be a non-empty string" % section)
+    return value
+
+
 def _number(section: str, value: Any, *, integer: bool = False, minimum: float = 0) -> Any:
     ok = isinstance(value, (int, float)) and not isinstance(value, bool)
     if integer:
@@ -48,6 +59,48 @@ def _boolean(section: str, value: Any) -> bool:
     if not isinstance(value, bool):
         raise PolicyError("%s must be true or false" % section)
     return value
+
+
+def _spend_limits(raw: Dict[str, Any]) -> Optional[SpendLimits]:
+    if raw.get("spend_limits") is None:
+        return None
+    sl = _mapping("spend_limits", raw["spend_limits"])
+    _check_keys("spend_limits", sl, _SPEND_LIMITS)
+    tools = _str_list("spend_limits.tools", sl.get("tools", []))
+    if not tools:
+        raise PolicyError("spend_limits.tools must name at least one tool")
+    max_transaction = sl.get("max_transaction")
+    max_total = sl.get("max_total")
+    if max_transaction is None and max_total is None:
+        raise PolicyError("spend_limits must set max_transaction and/or max_total")
+    return SpendLimits(
+        tools=tools,
+        amount_field=_string("spend_limits.amount_field", sl.get("amount_field"), "amount"),
+        max_transaction=(float(_number("spend_limits.max_transaction", max_transaction, minimum=0))
+                         if max_transaction is not None else None),
+        max_total=(float(_number("spend_limits.max_total", max_total, minimum=0))
+                  if max_total is not None else None),
+        currency=_string("spend_limits.currency", sl.get("currency"), "USD"),
+    )
+
+
+def _address_allowlist(raw: Dict[str, Any]) -> Optional[AddressAllowlist]:
+    if raw.get("address_allowlist") is None:
+        return None
+    al = _mapping("address_allowlist", raw["address_allowlist"])
+    _check_keys("address_allowlist", al, _ADDRESS_ALLOWLIST)
+    tools = _str_list("address_allowlist.tools", al.get("tools", []))
+    if not tools:
+        raise PolicyError("address_allowlist.tools must name at least one tool")
+    addresses = _str_list("address_allowlist.addresses", al.get("addresses", []))
+    if not addresses:
+        raise PolicyError("address_allowlist.addresses must list at least one address")
+    return AddressAllowlist(
+        tools=tools,
+        address_field=_string("address_allowlist.address_field", al.get("address_field"), "to"),
+        addresses=addresses,
+        case_sensitive=_boolean("address_allowlist.case_sensitive", al.get("case_sensitive", False)),
+    )
 
 
 def parse_policy(text: str) -> Policy:
@@ -138,6 +191,8 @@ def parse_policy(text: str) -> Policy:
         forbidden_actions=_str_list("forbidden_actions", raw.get("forbidden_actions", [])),
         secrets=_str_list("secrets", raw.get("secrets", [])),
         limits=limits,
+        spend_limits=_spend_limits(raw),
+        address_allowlist=_address_allowlist(raw),
         tests=_str_list("tests", raw.get("tests", [])),
         attack_packs=_str_list("attack_packs", raw.get("attack_packs", [])),
         judge=judge,

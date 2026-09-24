@@ -43,6 +43,34 @@ class Limits:
     max_cost_usd: Optional[float] = None
 
 
+@dataclass
+class SpendLimits:
+    """Caps on a monetary amount a named tool's call may move, checked against the tool call's
+    own arguments -- not tied to any particular integration (on-chain, banking, payments, ...).
+    `tools` must name at least one tool this applies to, and at least one of `max_transaction`/
+    `max_total` must be set; the loader rejects a `spend_limits` section that would enforce
+    nothing. An argument that isn't a number (missing, or not coercible to float) is ignored
+    rather than treated as zero, since it usually means the tool call doesn't carry an amount."""
+    tools: List[str] = field(default_factory=list)
+    amount_field: str = "amount"
+    max_transaction: Optional[float] = None
+    max_total: Optional[float] = None
+    currency: str = "USD"
+
+
+@dataclass
+class AddressAllowlist:
+    """Restricts a named tool's destination argument to a fixed set of known-good values (a
+    wallet address, an IBAN, an account id, ...). Deny-by-default: any value not in `addresses`
+    is flagged, which is a stronger check than matching against a table of known lookalikes.
+    `tools` and `addresses` must each name at least one entry; the loader rejects an
+    `address_allowlist` section that would enforce nothing."""
+    tools: List[str] = field(default_factory=list)
+    address_field: str = "to"
+    addresses: List[str] = field(default_factory=list)
+    case_sensitive: bool = False
+
+
 JUDGE_CHECKS = ("goal_hijack", "paraphrased_leak")
 
 
@@ -67,6 +95,8 @@ class Policy:
     forbidden_actions: List[str] = field(default_factory=list)
     secrets: List[str] = field(default_factory=list)  # literal values that must never leak
     limits: Limits = field(default_factory=Limits)
+    spend_limits: Optional[SpendLimits] = None  # None = not enforced
+    address_allowlist: Optional[AddressAllowlist] = None  # None = not enforced
     tests: List[str] = field(default_factory=list)
     attack_packs: List[str] = field(default_factory=list)  # extra scenario packs to load (see agentsec.attacks.packs)
     judge: Optional[JudgeConfig] = None
@@ -88,6 +118,7 @@ class Policy:
     def to_report_dict(self) -> Dict[str, Any]:
         """Policy as recorded in reports. Secret values are never included."""
         a = self.agent
+        sl, al = self.spend_limits, self.address_allowlist
         return {
             "version": self.version,
             "agent": {
@@ -99,6 +130,12 @@ class Policy:
             "forbidden_actions": self.forbidden_actions,
             "secrets_count": len(self.secrets),
             "limits": self.limits.__dict__.copy(),
+            "spend_limits": ({"tools": sl.tools, "amount_field": sl.amount_field,
+                             "max_transaction": sl.max_transaction, "max_total": sl.max_total,
+                             "currency": sl.currency} if sl else None),
+            "address_allowlist": ({"tools": al.tools, "address_field": al.address_field,
+                                   "addresses_count": len(al.addresses),
+                                   "case_sensitive": al.case_sensitive} if al else None),
             "tests": self.tests,
             "attack_packs": self.attack_packs,
             "judge": ({"endpoint": self.judge.endpoint, "model": self.judge.model,

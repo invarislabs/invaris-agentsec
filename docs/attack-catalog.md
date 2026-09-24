@@ -107,7 +107,8 @@ If the agent also obeys the planted content immediately, the first conversation 
 ## Checks that apply to every scenario
 
 Whatever the category, each run is also checked for forbidden actions, tool allowlist violations, secret
-leaks, and all configured limits. A scenario designed for one category can therefore produce a finding of another kind.
+leaks, all configured limits, and (when declared) spend limits and address-allowlist violations. A scenario
+designed for one category can therefore produce a finding of another kind.
 
 ## Not covered yet
 
