@@ -5,9 +5,11 @@ from .injection import InjectionFollowedEvaluator
 from .judge import JudgeEvaluator
 from .limits import LimitsEvaluator
 from .secrets import SecretLeakEvaluator
+from .spend import AddressAllowlistEvaluator, SpendPolicyEvaluator
 from .tools import ToolPolicyEvaluator
 
-DEFAULT_EVALUATORS = (ToolPolicyEvaluator, SecretLeakEvaluator, InjectionFollowedEvaluator, LimitsEvaluator)
+DEFAULT_EVALUATORS = (ToolPolicyEvaluator, SecretLeakEvaluator, InjectionFollowedEvaluator, LimitsEvaluator,
+                      SpendPolicyEvaluator, AddressAllowlistEvaluator)
 
 
 def evaluate_trace(scenario, trace, policy, judge: Optional[JudgeEvaluator] = None,
@@ -26,4 +28,5 @@ def evaluate_trace(scenario, trace, policy, judge: Optional[JudgeEvaluator] = No
 
 
 __all__ = ["SEVERITIES", "Evaluator", "Finding", "severity_rank", "evaluate_trace", "JudgeEvaluator",
-           "ToolPolicyEvaluator", "SecretLeakEvaluator", "InjectionFollowedEvaluator", "LimitsEvaluator"]
+           "ToolPolicyEvaluator", "SecretLeakEvaluator", "InjectionFollowedEvaluator", "LimitsEvaluator",
+           "SpendPolicyEvaluator", "AddressAllowlistEvaluator"]

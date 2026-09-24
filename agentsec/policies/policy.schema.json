@@ -129,6 +129,72 @@
         }
       }
     },
+    "spend_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tools"
+      ],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "amount_field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_transaction": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "address_allowlist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tools",
+        "addresses"
+      ],
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "address_field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "case_sensitive": {
+          "type": "boolean"
+        }
+      }
+    },
     "tests": {
       "type": "array",
       "items": {
