@@ -22,6 +22,13 @@ MAX_PAGES = 50
 class MCPError(RuntimeError):
     """The MCP server could not be reached or broke the protocol."""
 
+    def __init__(self, message: str, code: Optional[int] = None):
+        super().__init__(message)
+        self.code = code
+
+
+METHOD_NOT_FOUND = -32601
+
 
 class MCPClient:
     """Transport-independent part: subclasses implement `_request` and `_notify`."""
@@ -66,25 +73,47 @@ class MCPClient:
                  if isinstance(c, dict) and c.get("type") == "text"]
         return "\n".join(parts)
 
-    def list_tools(self) -> List[Dict[str, Any]]:
-        tools: List[Dict[str, Any]] = []
+    def _list_paginated(self, method: str, key: str, optional: bool = False) -> List[Dict[str, Any]]:
+        """Page through a `<thing>/list` method. When `optional` is set, a server that doesn't
+        support this method at all (JSON-RPC "method not found" on the very first page) returns an
+        empty list rather than raising -- resources and prompts are optional MCP capabilities,
+        unlike tools, and plenty of real servers only implement tools."""
+        items: List[Dict[str, Any]] = []
         cursor: Optional[str] = None
         for _ in range(MAX_PAGES):
-            result = self._request("tools/list", {"cursor": cursor} if cursor else {})
-            page = result.get("tools")
+            try:
+                result = self._request(method, {"cursor": cursor} if cursor else {})
+            except MCPError as exc:
+                if optional and cursor is None and exc.code == METHOD_NOT_FOUND:
+                    return []
+                raise
+            page = result.get(key)
             if not isinstance(page, list):
-                raise MCPError("tools/list returned no `tools` list")
-            tools.extend(t for t in page if isinstance(t, dict))
+                raise MCPError("%s returned no `%s` list" % (method, key))
+            items.extend(x for x in page if isinstance(x, dict))
             cursor = result.get("nextCursor")
             if not cursor:
-                return tools
-        raise MCPError("tools/list did not finish after %d pages" % MAX_PAGES)
+                return items
+        raise MCPError("%s did not finish after %d pages" % (method, MAX_PAGES))
+
+    def list_tools(self) -> List[Dict[str, Any]]:
+        return self._list_paginated("tools/list", "tools")
+
+    def list_resources(self) -> List[Dict[str, Any]]:
+        """Empty list, not an error, when the server has no `resources` capability."""
+        return self._list_paginated("resources/list", "resources", optional=True)
+
+    def list_prompts(self) -> List[Dict[str, Any]]:
+        """Empty list, not an error, when the server has no `prompts` capability."""
+        return self._list_paginated("prompts/list", "prompts", optional=True)
 
 
 def _unwrap(msg: Dict[str, Any]) -> Dict[str, Any]:
     if "error" in msg:
         err = msg["error"]
-        raise MCPError("server error: %s" % (err.get("message") if isinstance(err, dict) else err))
+        message = err.get("message") if isinstance(err, dict) else err
+        code = err.get("code") if isinstance(err, dict) else None
+        raise MCPError("server error: %s" % message, code=code)
     result = msg.get("result")
     if not isinstance(result, dict):
         raise MCPError("response has no result object")
