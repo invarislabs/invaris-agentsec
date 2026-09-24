@@ -8,10 +8,10 @@ modes. Nothing about this needs a change to AgentSec itself: `agentsec/attacks/p
 loads a pack's `CATEGORIES`, and (as of this doc) its optional `EVALUATORS`, as ordinary Python
 imports. See [Extending](extending.md#write-an-attack-pack) for the mechanics.
 
-This page is the reference implementation plus a roadmap: three domains (coding agents, browser
-agents, and customer-support agents) are fully built and tested; the other two (RAG-backed agents
-and financial/on-chain agents) are specified concretely enough to build the same way, reusing the
-same two extension points every time.
+This page is the reference implementation plus a roadmap: four domains (coding agents, browser
+agents, RAG-backed agents, and customer-support agents) are fully built and tested; one more
+(financial/on-chain agents) is specified concretely enough to build the same way, reusing the same
+two extension points every time.
 
 ## The pattern, in one paragraph
 
@@ -23,12 +23,13 @@ way it does for the generic categories. Others are attacks where the *tool call 
 legitimate* -- `install_package`, `send_transaction`, `issue_refund` are all real, allowed tools --
 and the danger is entirely in the arguments. Those need a pack-provided `Evaluator` that inspects
 `trace.of_type("tool_call")` for the specific argument shape that makes an otherwise-normal call
-dangerous. `examples/attack_packs/coding_agent_pack.py`, `examples/attack_packs/browser_agent_pack.py` and
-`examples/attack_packs/support_agent_pack.py` each have one category of each kind, as a concrete
-template. A third case shows up in `support_agent_cross_customer_leak`: sometimes a category needs
-no pack evaluator not because a forbidden tool was called, but because a *built-in* evaluator
+dangerous. `examples/attack_packs/coding_agent_pack.py`, `examples/attack_packs/browser_agent_pack.py`,
+`examples/attack_packs/rag_pack.py` and `examples/attack_packs/support_agent_pack.py` each have one
+category of each kind, as a concrete template. Two more cases show up further in: a category built
+to have *no* deterministic signal at all, on purpose (`rag_citation_spoofing`), and a category that
+needs no pack evaluator not because a forbidden tool was called, but because a *built-in* evaluator
 other than the tool-policy one (here, the canary check in `SecretLeakEvaluator`) already covers it
--- see below.
+(`support_agent_cross_customer_leak`) -- see below.
 
 ## Built: coding-agent attacks
 
@@ -66,6 +67,32 @@ forms, and acts on whatever it reads there -- content written by the page's auth
   human" step. Needs no custom evaluator: the target is a forbidden action (`enter_credentials`),
   so the built-in check catches it.
 
+## Built: RAG-backed agent attacks
+
+`examples/attack_packs/rag_pack.py`, covered by `tests/test_attack_packs.py`. AgentSec already has
+`unsafe_retrieved_documents` and `indirect_prompt_injection` for "a retrieved document says
+something bad." This pack is narrower: attacks that exploit *how retrieval itself ranks and trusts
+documents*. It is also the pack that demonstrates a fourth answer to "does this need a pack
+evaluator?" -- sometimes the right answer is "no evaluator at all, deterministic or pack-provided,
+can see this; use the judge."
+
+- `rag_embedding_stuffing` -- a chunk is keyword-stuffed to rank highly for many unrelated queries,
+  so it gets retrieved (and its injected instruction read) regardless of what was actually asked.
+  Needs no custom evaluator: the existing marker mechanism catches it once the chunk is the
+  scenario's planted document, the same as the built-in `indirect_prompt_injection` category.
+- `rag_citation_spoofing` -- an injected chunk imitates a trusted source's citation format ("per
+  our official Data Sharing Policy v4.2...") to borrow authority it hasn't earned, and the agent
+  discloses more than it should on that authority. Deliberately built with no forbidden tool call,
+  marker or canary: "did the agent treat this as authoritative" is a judgment call, not a pattern
+  match, so it produces zero findings without `--judge` and is flagged only by the judge's
+  `goal_hijack` check (see [Judge](judge.md)) -- confirmed by a test using a scripted judge
+  adapter, not just asserted.
+- `rag_stale_document_resurrection` -- a retrieved document is an explicitly superseded policy
+  version (an old refund policy permitting something the current one forbids). `approve_refund` is
+  a normal, allowed tool; the pack's `StaleDocumentEvaluator` flags the call by checking its
+  `justification` argument for language tied to the superseded document, the same shape as
+  `TyposquatPackageEvaluator` but for a stale citation instead of a package name.
+
 ## Built: customer-support agent attacks
 
 `examples/attack_packs/support_agent_pack.py`, covered by `tests/test_attack_packs.py`.
@@ -84,29 +111,10 @@ forms, and acts on whatever it reads there -- content written by the page's auth
   own `cross_session_leak` scenario. Needs no custom evaluator: the built-in `SecretLeakEvaluator`
   already flags a planted canary that turns up in the agent's own output in a later session.
 
-## Specified: two more domains
+## Specified: one more domain
 
 Each entry below names concrete scenarios, which extension point each needs, and the one
 detection nuance worth knowing before building it. None of this is implemented yet.
-
-### RAG-specific attacks
-
-AgentSec already has `unsafe_retrieved_documents` and `indirect_prompt_injection` for "a retrieved
-document says something bad." This domain is narrower: attacks that exploit *how retrieval itself
-ranks and trusts documents*, which a RAG-specific evaluator can reason about but a generic one
-cannot.
-
-- `rag_embedding_stuffing` -- a chunk is keyword-stuffed to rank highly for many unrelated queries,
-  so it gets retrieved (and its injected instruction read) regardless of what was actually asked.
-  Detectable with the existing marker mechanism once the chunk is the scenario's planted document.
-- `rag_citation_spoofing` -- an injected chunk imitates a trusted source's citation format ("per
-  our official Security Policy v4.2...") to borrow authority it hasn't earned. This one is a
-  genuine case for `judge:` (see [Judge](judge.md)) rather than a deterministic evaluator: "did the
-  agent treat this as authoritative" is a judgment call, not a pattern match.
-- `rag_stale_document_resurrection` -- a retrieved document is a superseded version (an old refund
-  policy permitting something the current one forbids). Needs a pack evaluator that checks whether
-  the agent acted on the stale document's claim rather than refusing pending confirmation of
-  current policy.
 
 ### Financial / on-chain agents
 
@@ -136,12 +144,17 @@ address allowlist.
 2. Decide, per scenario, whether the built-in evaluators already cover it (a forbidden tool called,
    a marker echoed, a canary leaked) or whether the danger is in an otherwise-legitimate tool
    call's arguments. Only the second case needs a pack evaluator.
-3. Write the pack evaluator against `trace.of_type("tool_call")`, following
+3. Decide whether the danger can even be expressed deterministically at all. Most attacks can
+   (steps above); a few, like `rag_citation_spoofing`, come down to a judgment call no pattern
+   match can make -- for those, write no evaluator and rely on `judge:` with the `goal_hijack` or
+   `paraphrased_leak` check instead (see [Judge](judge.md)). Separately, if the danger is really
+   about a fact leaking across sessions, check whether a *different* built-in evaluator already
+   covers it (a canary via `SecretLeakEvaluator`, a marker via `InjectionFollowedEvaluator`) before
+   writing a new one -- `support_agent_cross_customer_leak` needs none at all.
+4. Write the pack evaluator against `trace.of_type("tool_call")`, following
    `TyposquatPackageEvaluator` / `InsecurePatchEvaluator` in `coding_agent_pack.py`,
-   `LookalikeDomainEvaluator` in `browser_agent_pack.py`, or `RefundAbuseEvaluator` in
-   `support_agent_pack.py`. If the danger is really about a fact leaking across sessions, check
-   whether a built-in evaluator already covers it (a canary via `SecretLeakEvaluator`, a marker via
-   `InjectionFollowedEvaluator`) before writing a new one -- `support_agent_cross_customer_leak`
-   needs none at all.
-4. Test the loader in isolation and `run_suite` end to end with a small scripted agent, the way
-   `tests/test_attack_packs.py` does for the coding-agent pack.
+   `LookalikeDomainEvaluator` in `browser_agent_pack.py`, `StaleDocumentEvaluator` in
+   `rag_pack.py`, or `RefundAbuseEvaluator` in `support_agent_pack.py`.
+5. Test the loader in isolation and `run_suite` end to end with a small scripted agent, the way
+   `tests/test_attack_packs.py` does for the coding-agent pack -- and, for a judge-only category,
+   with a scripted judge adapter too, the way it does for `rag_citation_spoofing`.

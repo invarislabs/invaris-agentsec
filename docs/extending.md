@@ -120,10 +120,12 @@ to one built-in category. Findings from a pack evaluator have no OWASP mapping u
 to match one AgentSec already knows about; that's fine; the report and SARIF output show them regardless.
 See `examples/attack_packs/coding_agent_pack.py` for a complete example with two pack evaluators
 (a typosquatted-dependency check and an insecure-patch-content check) alongside a category that needs no
-custom evaluator at all, `examples/attack_packs/browser_agent_pack.py` for the same pattern applied to
-a lookalike-domain check, or `examples/attack_packs/support_agent_pack.py` for a category that needs no
-pack evaluator because a *built-in* evaluator other than the tool-policy one already covers it. See
-[Domain attack packs](domain-attack-packs.md) for all three, plus the design for two more domains.
+custom evaluator at all, or `examples/attack_packs/browser_agent_pack.py` for the same pattern applied to
+a lookalike-domain check. Not every attack can even be expressed deterministically: see
+`examples/attack_packs/rag_pack.py`'s `rag_citation_spoofing` category for one built to rely on the judge
+model instead of any evaluator, or `examples/attack_packs/support_agent_pack.py` for a category that needs
+no pack evaluator because a *built-in* evaluator other than the tool-policy one already covers it. See
+[Domain attack packs](domain-attack-packs.md) for all four, plus the design for one more domain.
 
 ## Add an evaluator
 
