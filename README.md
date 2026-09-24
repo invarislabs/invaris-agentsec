@@ -101,7 +101,7 @@ Run the security suite:
 agentsec test
 ```
 
-Example output (reports are also written to `.agentsec/report.json` and `.agentsec/report.html`):
+Example output (reports are also written to `.agentsec/report.json` and `.agentsec/report.html`, the two default formats -- `markdown` and `sarif` are also available via `--format`):
 
 ```text
 Invaris AgentSec
@@ -260,7 +260,7 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, MCP) and attack packs
-tests/                # Unit and end-to-end tests (177+ tests)
+tests/                # Unit and end-to-end tests (267+ tests)
 ```
 
 ### Core components
@@ -404,6 +404,7 @@ Invaris Labs is building testing and verification infrastructure for trustworthy
 
 ## Contact
 
+- Email: [arunimachaudhuri2020@gmail.com](mailto:arunimachaudhuri2020@gmail.com)
 - GitHub: [github.com/tinniaru3005](https://github.com/tinniaru3005)
 - LinkedIn: [Arunima Chaudhuri](https://www.linkedin.com/in/arunima-chaudhuri/)
 ---
