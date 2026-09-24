@@ -18,7 +18,7 @@
 ```json
 {
   "report_schema_version": "1",
-  "tool": {"name": "invaris-agentsec", "version": "0.5.0"},
+  "tool": {"name": "invaris-agentsec", "version": "0.6.0"},
   "generated_at": "2026-09-20T09:15:02+00:00",
   "run_config": {
     "seed": 0,

@@ -6,8 +6,6 @@ Invaris AgentSec is an open-source testing framework for finding unsafe, unautho
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
-> **Project status:** Early development, but the local testing engine is functional and self-contained: 8 attack categories across 34 deterministic, replayable scenarios; JSON, HTML, Markdown and SARIF reports; a Python API and pytest plugin; MCP server scanning and MCP-based agent testing; LangChain/LangGraph support; regression comparison; a packaged GitHub Action with pull-request comparison comments and GitHub Code Scanning integration; and a plugin mechanism (attack packs) for adding your own scenarios without forking the project. It's published on PyPI (`pip install invaris-agentsec`). See [What's Built](#whats-built) for the full list and [Future Work](#future-work) for what's next. Interfaces marked as provisional may still change.
-
 ## Why AgentSec?
 
 Traditional software follows explicitly written execution paths. AI agents interpret untrusted inputs, select tools, retain memory, and make decisions dynamically. A single indirect prompt injection or poisoned tool response can cause an agent to:
@@ -41,7 +39,7 @@ The test suite covers:
 - Unsafe handling of retrieved documents
 - Behavioural regressions across models and prompts, via `agentsec compare`
 
-Identity and privilege misuse, multi-agent trust and delegation failures, and unauthorized financial or on-chain actions are not covered yet; see [Future Work](#future-work).
+Identity and privilege misuse and multi-agent trust and delegation failures are not covered yet; see [Future Work](#future-work). Unauthorized financial or on-chain actions are covered, but not by the default eight categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md).
 
 Findings are mapped to the [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) (ASI01 to ASI10).
 
