@@ -20,7 +20,7 @@ full list. Planned work is in [Future Work](../README.md#future-work) and is not
 | [Frameworks](frameworks.md) | Test LangChain/LangGraph agents and other in-process agents |
 | [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
-| [Domain attack packs](domain-attack-packs.md) | See the coding-agent, browser-agent, RAG and customer-support attack packs, and the design for on-chain agent packs |
+| [Domain attack packs](domain-attack-packs.md) | See all five reference attack packs: coding-agent, browser-agent, RAG, customer-support and on-chain agents |
 
 ## What AgentSec does in one paragraph
 

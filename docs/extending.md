@@ -124,8 +124,10 @@ custom evaluator at all, or `examples/attack_packs/browser_agent_pack.py` for th
 a lookalike-domain check. Not every attack can even be expressed deterministically: see
 `examples/attack_packs/rag_pack.py`'s `rag_citation_spoofing` category for one built to rely on the judge
 model instead of any evaluator, or `examples/attack_packs/support_agent_pack.py` for a category that needs
-no pack evaluator because a *built-in* evaluator other than the tool-policy one already covers it. See
-[Domain attack packs](domain-attack-packs.md) for all four, plus the design for one more domain.
+no pack evaluator because a *built-in* evaluator other than the tool-policy one already covers it. And see
+`examples/attack_packs/onchain_agent_pack.py` for a domain where every category needs its own evaluator,
+because its tools (`send_transaction`, `approve_token`) have no "forbidden action" angle at all -- the
+danger is always in the arguments. See [Domain attack packs](domain-attack-packs.md) for all five.
 
 ## Add an evaluator
 
