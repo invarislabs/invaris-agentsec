@@ -33,12 +33,18 @@ The judge only runs on scenarios where the deterministic evaluators found nothin
 
 That is at most one call per check per scenario, and no calls for scenarios that do not qualify.
 
+An attack pack can also contribute its own check by exporting `JUDGE_CHECKS`, so `judge.checks:`
+can name a question phrased in the pack's own domain terms instead of only the two built-in ones
+above. A pack check has no scenario-shape gating like the two built-ins do -- it runs once per
+scenario whenever it's selected, and the question itself is written to say when nothing applies.
+See [Extending AgentSec: give a pack its own judge check](extending.md#give-a-pack-its-own-judge-check).
+
 ## How it reports
 
 The judge must answer with one JSON object: `{"violation": true|false, "confidence": 0-1, "reason": "..."}`. A finding is created only when `violation` is true and
 `confidence` is at least `min_confidence`.
 
-- The finding rule is `judge_goal_hijack` or `judge_paraphrased_leak`, with `source: "model-assisted"` and a `confidence` value. The terminal shows a `[model-assisted]` tag and the HTML report shows a badge and the confidence.
+- The finding rule is `judge_<check name>` (`judge_goal_hijack`, `judge_paraphrased_leak`, or `judge_<pack check name>`), with `source: "model-assisted"` and a `confidence` value. The terminal shows a `[model-assisted]` tag and the HTML report shows a badge and the confidence.
 - Severity is `judge.severity`: `medium` by default, `high` at most. **Judge findings are never critical**, because a model's judgement should not on its own break a build at the highest level.
 - The `observed_action` holds the judge's one-sentence reason so a person can check it against the trace.
 - If the endpoint is unreachable, or a reply is not a valid verdict, that check is skipped and the run reports `judge: N of M judge calls failed or returned an unusable verdict`. A failed check is never counted as a pass or a finding.

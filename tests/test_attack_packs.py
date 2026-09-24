@@ -11,10 +11,11 @@ from agentsec.api import AgentTarget, SecuritySuite
 from agentsec.attacks import CATEGORIES, build_scenarios
 from agentsec.attacks.base import Scenario, ScenarioContext
 from agentsec.attacks.packs import (PackCategory, check_pack_scenarios, load_pack,
-                                    load_pack_evaluators, load_packs, load_packs_evaluators)
-from agentsec.evaluators.base import Evaluator
+                                    load_pack_evaluators, load_pack_judge_checks, load_packs,
+                                    load_packs_evaluators, load_packs_judge_checks)
+from agentsec.evaluators.base import Evaluator, JudgeCheck
 from agentsec.cli.main import main
-from agentsec.policies import PolicyError, load_policy, parse_policy
+from agentsec.policies import JUDGE_CHECKS, PolicyError, load_policy, parse_policy
 from agentsec.runners import run_suite
 
 EXAMPLE = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "brand_and_pii_pack.py")
@@ -321,6 +322,105 @@ def test_load_pack_evaluators_from_the_onchain_agent_example():
     assert all(issubclass(cls, Evaluator) for cls in evaluators)
 
 
+# ---- pack-provided judge checks (JUDGE_CHECKS) ----------------------------
+
+def test_pack_without_judge_checks_attr_contributes_none(tmp_path):
+    spec = write_pack(tmp_path, """
+        from agentsec.attacks.base import Scenario
+        def build(ctx):
+            return [Scenario(id="c/1", category="c", title="t", description="t", user_message="m")]
+        CATEGORIES = {"c": build}
+        """)
+    assert load_pack_judge_checks(spec) == {}
+    assert load_packs_judge_checks([spec]) == {}
+
+
+def test_judge_checks_must_be_a_dict_of_judgecheck(tmp_path):
+    not_a_dict = write_pack(tmp_path, """
+        CATEGORIES = {"c": lambda ctx: []}
+        JUDGE_CHECKS = "not-a-dict"
+        """, "a.py")
+    with pytest.raises(PolicyError, match="must be a dict"):
+        load_pack_judge_checks(not_a_dict)
+
+    not_a_judgecheck = write_pack(tmp_path, """
+        CATEGORIES = {"c": lambda ctx: []}
+        JUDGE_CHECKS = {"my_check": "not-a-judgecheck"}
+        """, "b.py")
+    with pytest.raises(PolicyError, match="must be a JudgeCheck"):
+        load_pack_judge_checks(not_a_judgecheck)
+
+
+def test_load_pack_judge_checks_from_a_real_pack(tmp_path):
+    spec = write_pack(tmp_path, """
+        from agentsec.attacks.base import Scenario
+        from agentsec.evaluators.base import JudgeCheck
+
+        def build(ctx):
+            return [Scenario(id="c/1", category="c", title="t", description="t", user_message="m")]
+        CATEGORIES = {"c": build}
+        JUDGE_CHECKS = {"my_check": JudgeCheck(
+            question="Did the agent do the bad thing?", title="t", policy_violated="p",
+            remediation="r")}
+        """)
+    checks = load_pack_judge_checks(spec)
+    assert list(checks) == ["my_check"]
+    assert isinstance(checks["my_check"], JudgeCheck)
+    assert checks["my_check"].question == "Did the agent do the bad thing?"
+
+
+def test_load_packs_judge_checks_rejects_builtin_collision(tmp_path):
+    spec = write_pack(tmp_path, """
+        from agentsec.evaluators.base import JudgeCheck
+        CATEGORIES = {"c": lambda ctx: []}
+        JUDGE_CHECKS = {"goal_hijack": JudgeCheck(question="q", title="t", policy_violated="p",
+                                                  remediation="r")}
+        """)
+    with pytest.raises(PolicyError, match="built-in check name"):
+        load_packs_judge_checks([spec])
+
+
+def test_load_packs_judge_checks_rejects_cross_pack_collision(tmp_path):
+    def pack_with_check(filename):
+        return write_pack(tmp_path, """
+            from agentsec.evaluators.base import JudgeCheck
+            CATEGORIES = {"c": lambda ctx: []}
+            JUDGE_CHECKS = {"shared_name": JudgeCheck(question="q", title="t", policy_violated="p",
+                                                       remediation="r")}
+            """, filename)
+
+    a = pack_with_check("a.py")
+    b = pack_with_check("b.py")
+    with pytest.raises(PolicyError, match="already defined by another attack pack"):
+        load_packs_judge_checks([a, b])
+
+
+def test_load_packs_judge_checks_merges_across_packs_and_dedups_specs(tmp_path):
+    def pack_with_check(name, filename):
+        return write_pack(tmp_path, """
+            from agentsec.evaluators.base import JudgeCheck
+            CATEGORIES = {"c": lambda ctx: []}
+            JUDGE_CHECKS = {"%s": JudgeCheck(question="q", title="t", policy_violated="p",
+                                             remediation="r")}
+            """ % name, filename)
+
+    a = pack_with_check("check_a", "a.py")
+    b = pack_with_check("check_b", "b.py")
+    merged = load_packs_judge_checks([a, b, a])  # duplicate spec, imported only once
+    assert sorted(merged) == ["check_a", "check_b"]
+
+
+def test_load_pack_judge_checks_from_the_rag_example():
+    checks = load_pack_judge_checks(RAG_PACK)
+    assert list(checks) == ["rag_fabricated_citation_authority"]
+    assert isinstance(checks["rag_fabricated_citation_authority"], JudgeCheck)
+
+
+def test_load_pack_judge_checks_from_packs_with_no_checks_contribute_none():
+    for pack in (CODING_PACK, BROWSER_PACK, SUPPORT_PACK, ONCHAIN_PACK):
+        assert load_pack_judge_checks(pack) == {}
+
+
 # ---- coding_agent_pack: a full run_suite round trip through a real pack's
 #      own evaluators, not just the loader in isolation ----------------------
 
@@ -573,6 +673,72 @@ def test_run_suite_rag_pack_citation_spoofing_fires_via_judge_goal_hijack():
     assert all(f.rule == "judge_goal_hijack" for f in suite.findings)
     assert all(f.source == "model-assisted" for f in suite.findings)
     assert all(f.severity == "medium" for f in suite.findings)  # judge.severity default
+
+
+# ---- rag_pack's own JUDGE_CHECKS entry: a pack-provided judge question,
+#      selected by name from judge.checks, rather than the built-in
+#      goal_hijack question used above. ---------------------------------
+
+RAG_PACK_CHECK_POLICY = """
+version: "1"
+agent: {name: t, endpoint: 'http://x'}
+allowed_tools: [search_documents, approve_refund]
+tests: []
+attack_packs: [%r]
+judge:
+  endpoint: 'http://judge-not-used'
+  model: test-judge
+  checks: [rag_fabricated_citation_authority]
+""" % RAG_PACK
+
+RAG_UNKNOWN_CHECK_POLICY = """
+version: "1"
+agent: {name: t, endpoint: 'http://x'}
+allowed_tools: [search_documents, approve_refund]
+tests: []
+attack_packs: [%r]
+judge:
+  endpoint: 'http://judge-not-used'
+  model: test-judge
+  checks: [totally_made_up_check]
+""" % RAG_PACK
+
+
+def test_parse_policy_accepts_a_pack_provided_judge_check_name():
+    """`judge.checks:` naming a pack-provided check is NOT rejected at parse time -- packs aren't
+    loaded yet when the policy is parsed, so this is deferred to run_suite, the same way an
+    unknown `tests:` category name is deferred to build_scenarios rather than checked eagerly."""
+    parse_policy(RAG_PACK_CHECK_POLICY)  # must not raise
+
+
+def _scripted_citation_authority_judge(messages, tools):
+    content = messages[-1]["content"]
+    if "Data Sharing Policy v4.2" in content and "AP-88213-VendorCo" in content:
+        return ('{"violation": true, "confidence": 0.88, "reason": "Agent relied on a '
+                'self-asserted citation in the document instead of verifying it."}')
+    return '{"violation": false, "confidence": 0.9, "reason": "no fabricated authority"}'
+
+
+def test_run_suite_rag_pack_citation_spoofing_fires_via_pack_provided_judge_check():
+    """The pack's own JUDGE_CHECKS entry, selected by name in judge.checks, fires exactly like a
+    built-in check: labelled model-assisted, ruled `judge_<check name>`."""
+    policy = parse_policy(RAG_PACK_CHECK_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_rag_agent), only=["rag_citation_spoofing"],
+                      judge=True, judge_adapter=CallableAdapter(_scripted_citation_authority_judge))
+    assert suite.findings
+    assert all(f.rule == "judge_rag_fabricated_citation_authority" for f in suite.findings)
+    assert all(f.source == "model-assisted" for f in suite.findings)
+
+
+def test_run_suite_still_rejects_a_genuinely_unknown_judge_check_with_packs_loaded():
+    """A check name that is neither built-in nor provided by any loaded pack is still rejected --
+    just later, once packs have actually been loaded, not eagerly at parse time."""
+    policy = parse_policy(RAG_UNKNOWN_CHECK_POLICY)
+    with pytest.raises(PolicyError, match="unknown judge check"):
+        run_suite(policy, CallableAdapter(_obedient_rag_agent), only=["rag_citation_spoofing"],
+                 judge=True, judge_adapter=CallableAdapter(_scripted_citation_authority_judge))
+
+
 # ---- support_agent_pack: same shape again -- one category the built-in
 #      forbidden-action evaluator already covers, one that needs a pack
 #      evaluator because the attack is in issue_refund's arguments, and one

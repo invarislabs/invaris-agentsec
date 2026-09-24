@@ -12,7 +12,7 @@ from ..adapters import AdapterError, AgentAdapter
 from ..attacks import build_scenarios
 from ..attacks.base import Scenario, ScenarioContext, ToolResponder
 from ..evaluators import Finding, JudgeEvaluator, evaluate_trace
-from ..policies import Policy, PolicyError
+from ..policies import JUDGE_CHECKS, Policy, PolicyError
 from ..traces import Trace
 
 SANDBOX_OK = "OK (simulated by AgentSec sandbox; no real action was taken)"
@@ -216,22 +216,31 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
     deterministic evaluators passed (advisory, clearly labelled model-assisted). `attack_packs`
     (from `agentsec.attacks.packs.load_packs`) adds categories for this run only, on top of any
     the policy's own `attack_packs:` already loads; see docs/extending.md."""
-    evaluator: Optional[JudgeEvaluator] = None
-    if judge:
-        if policy.judge is None:
-            raise PolicyError("--judge needs a `judge:` section in the policy (endpoint, model, ...)")
-        evaluator = JudgeEvaluator(policy.judge, judge_adapter)
-    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories,
-                                          extra_categories=attack_packs)
-    # Same specs build_scenarios just resolved into scenarios (policy.attack_packs, plus any ad hoc
-    # ones passed in as `attack_packs`) can also carry their own evaluators; collect those once here
-    # rather than threading a second parameter through every caller of run_suite.
-    from ..attacks.packs import load_packs_evaluators  # lazy: avoid a hard, always-on import
+    # Specs build_scenarios is about to resolve into scenarios (policy.attack_packs, plus any ad hoc
+    # ones passed in as `attack_packs`) can also carry their own evaluators and judge checks;
+    # collect those once here, before build_scenarios runs, rather than threading a second
+    # parameter through every caller of run_suite. pack_specs doesn't depend on build_scenarios'
+    # return value, so computing it first lets a pack's own judge check be available in time for
+    # JudgeEvaluator construction below.
+    from ..attacks.packs import load_packs_evaluators, load_packs_judge_checks  # lazy: avoid a hard, always-on import
     pack_specs = list(policy.attack_packs or [])
     for pc in (attack_packs or {}).values():
         if pc.spec not in pack_specs:
             pack_specs.append(pc.spec)
     extra_evaluators = load_packs_evaluators(pack_specs) if pack_specs else []
+
+    evaluator: Optional[JudgeEvaluator] = None
+    if judge:
+        if policy.judge is None:
+            raise PolicyError("--judge needs a `judge:` section in the policy (endpoint, model, ...)")
+        extra_checks = load_packs_judge_checks(pack_specs) if pack_specs else {}
+        unknown = [c for c in policy.judge.checks if c not in JUDGE_CHECKS and c not in extra_checks]
+        if unknown:
+            raise PolicyError("unknown judge check %r; available: %s"
+                              % (unknown[0], ", ".join(list(JUDGE_CHECKS) + sorted(extra_checks))))
+        evaluator = JudgeEvaluator(policy.judge, judge_adapter, extra_checks=extra_checks)
+    scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories,
+                                          extra_categories=attack_packs)
     run_id = uuid.uuid4().hex[:8]  # isolates agent-side memory between runs
     results: List[ScenarioResult] = []
     for sc in scenarios:

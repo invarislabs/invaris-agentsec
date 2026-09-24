@@ -115,10 +115,11 @@ def parse_policy(text: str) -> Policy:
         jh = j.get("headers", {})
         if not isinstance(jh, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in jh.items()):
             raise PolicyError("judge.headers must be a mapping of strings")
+        # Membership against JUDGE_CHECKS is deliberately NOT enforced here: a policy's
+        # `checks:` list may name a check a `attack_packs:` entry provides, and packs are not
+        # loaded until run time. See build_scenarios()'s equivalent deferral for `tests:`, and
+        # run_suite()'s "unknown judge check" validation, which runs once packs are loaded.
         checks = _str_list("judge.checks", j.get("checks", list(JUDGE_CHECKS)))
-        bad = [c for c in checks if c not in JUDGE_CHECKS]
-        if bad:
-            raise PolicyError("unknown judge check %r; available: %s" % (bad[0], ", ".join(JUDGE_CHECKS)))
         conf = float(_number("judge.min_confidence", j.get("min_confidence", 0.7)))
         if conf > 1:
             raise PolicyError("judge.min_confidence must be between 0 and 1")
