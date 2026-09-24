@@ -12,9 +12,9 @@ A finding can map to more than one category.
 | ID | Name | Covered by AgentSec today |
 |---|---|---|
 | ASI01 | Agent Goal Hijack | Yes: prompt injection, indirect injection, tool-output poisoning, memory poisoning |
-| ASI02 | Tool Misuse | Yes: forbidden and out-of-allowlist calls, tool-call, token, time and cost budgets |
-| ASI03 | Identity & Privilege Abuse | Partly: leaked credentials and secrets, calls outside the allowlist |
-| ASI04 | Agentic Supply Chain Vulnerabilities | Partly: `agentsec mcp scan` checks MCP tool definitions for poisoning and changes |
+| ASI02 | Tool Misuse | Yes: forbidden and out-of-allowlist calls, tool-call, token, time and cost budgets, spend limits and address-allowlist violations |
+| ASI03 | Identity & Privilege Abuse | Partly: leaked credentials and secrets, calls outside the allowlist, destinations outside a declared address allowlist |
+| ASI04 | Agentic Supply Chain Vulnerabilities | Partly: `agentsec mcp scan` checks MCP tool, resource and prompt definitions for poisoning and changes |
 | ASI05 | Unexpected Code Execution | No |
 | ASI06 | Memory & Context Poisoning | Yes: the `memory_poisoning` category |
 | ASI07 | Insecure Inter-Agent Communication | No (multi-agent testing is on the roadmap) |
@@ -34,12 +34,14 @@ A finding can map to more than one category.
 | `repeated_calls` | ASI08 |
 | `limit_max_steps` | ASI08 |
 | `limit_max_tool_calls`, `limit_max_tokens`, `limit_max_seconds`, `limit_max_cost_usd` | ASI02 |
+| `spend_limit_exceeded`, `spend_total_exceeded` | ASI02 |
+| `address_not_allowlisted` | ASI02, ASI03 |
 | `judge_goal_hijack` | ASI01 |
 | `judge_paraphrased_leak` | ASI03 |
-| `mcp_tool_poisoning`, `mcp_invisible_characters` | ASI04, ASI01 |
-| `mcp_tool_shadowing` | ASI04, ASI02 |
-| `mcp_definition_changed`, `mcp_tool_added`, `mcp_tool_removed`, `mcp_duplicate_tool`, `mcp_oversized_description` | ASI04 |
-| `mcp_sensitive_reference` | ASI03, ASI04 |
+| `mcp_tool_poisoning`, `mcp_resource_poisoning`, `mcp_prompt_poisoning`, `mcp_invisible_characters`, `mcp_confusable_tool_name` | ASI04, ASI01 |
+| `mcp_tool_shadowing`, `mcp_annotation_mismatch` | ASI04, ASI02 |
+| `mcp_definition_changed`, `mcp_tool_added`, `mcp_tool_removed`, `mcp_resource_added`, `mcp_resource_removed`, `mcp_prompt_added`, `mcp_prompt_removed`, `mcp_duplicate_tool`, `mcp_duplicate_resource`, `mcp_duplicate_prompt`, `mcp_oversized_description` | ASI04 |
+| `mcp_sensitive_reference`, `mcp_resource_uri_credentials` | ASI03, ASI04 |
 | `mcp_forbidden_tool_exposed`, `mcp_high_impact_tool` | ASI02 |
 | `mcp_unlisted_tool` | ASI02, ASI03 |
 | `mcp_unconstrained_input` | ASI05 |

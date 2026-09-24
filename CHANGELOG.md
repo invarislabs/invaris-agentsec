@@ -3,6 +3,25 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## 0.6.0
+
+- `agentsec mcp scan` now scans MCP resources and prompts, not just tools: poisoned descriptions
+  and argument descriptions, invisible/bidirectional characters, homoglyph tool-name impersonation
+  (`mcp_confusable_tool_name`), annotation/behavior mismatches (`mcp_annotation_mismatch`),
+  credentials embedded in a resource URI (`mcp_resource_uri_credentials`), duplicate resources and
+  prompts, and `--pin`/`--recheck` change tracking (added/removed/changed) across all three kinds.
+  See [MCP testing](docs/mcp-testing.md).
+- Policy schema: `spend_limits` and `address_allowlist` sections let a policy cap the amount and
+  restrict the destination of tool calls that move money or send something somewhere, enforced by
+  two new core evaluators (`spend_limit_exceeded`, `spend_total_exceeded`,
+  `address_not_allowlisted`). Both are domain-agnostic -- the tool names and argument fields they
+  watch are declared in the policy, not hardcoded to any specific integration -- so they apply
+  alongside any attack pack, not just the bundled on-chain one. The on-chain reference pack's own
+  spend-cap check now defers to a policy-declared `max_transaction` when one is set. See
+  [Policy reference](docs/policy-reference.md#spend_limits).
+- Docs: `docs/owasp-mapping.md`'s finding-rule table and ASI02-04 summaries were missing the new
+  MCP resource/prompt rules and the spend/allowlist rules; both are now listed.
+
 ## 0.5.1
 
 - Fix: a real bug in the pull-request comparison comment (`pr-comment`) meant it never posted the

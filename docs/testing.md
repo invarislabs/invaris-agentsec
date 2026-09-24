@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 177 tests (182 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 262 tests (267 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
