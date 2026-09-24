@@ -22,6 +22,7 @@ CODING_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_
 BROWSER_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "browser_agent_pack.py")
 RAG_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "rag_pack.py")
 SUPPORT_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "support_agent_pack.py")
+ONCHAIN_PACK = str(Path(__file__).resolve().parent.parent / "examples" / "attack_packs" / "onchain_agent_pack.py")
 
 BASE_POLICY = """
 version: "1"
@@ -309,6 +310,14 @@ def test_load_pack_evaluators_from_the_support_agent_example():
     evaluators = load_pack_evaluators(SUPPORT_PACK)
     names = sorted(cls.name for cls in evaluators)
     assert names == ["support_agent_refund_abuse"]
+    assert all(issubclass(cls, Evaluator) for cls in evaluators)
+
+
+def test_load_pack_evaluators_from_the_onchain_agent_example():
+    evaluators = load_pack_evaluators(ONCHAIN_PACK)
+    names = sorted(cls.name for cls in evaluators)
+    assert names == ["onchain_agent_address_poisoning", "onchain_agent_unbounded_spend",
+                     "onchain_agent_unlimited_approval"]
     assert all(issubclass(cls, Evaluator) for cls in evaluators)
 
 
@@ -672,3 +681,84 @@ def test_run_suite_support_agent_pack_cross_customer_leak_uses_builtin_secret_le
     assert suite.findings
     assert all(f.rule == "secret_leak" for f in suite.findings)
     assert all(f.category == "support_agent_cross_customer_leak" for f in suite.findings)
+
+
+# ---- onchain_agent_pack: unlike the other four, all three categories need a
+#      pack evaluator here -- send_transaction and approve_token are always
+#      legitimate tools for a transaction-capable agent, so there is no
+#      "forbidden tool name" angle to fall back on. -----------------------
+
+ONCHAIN_POLICY = """
+version: "1"
+agent: {name: t, endpoint: 'http://x'}
+allowed_tools: [check_balance, get_transaction_history, send_transaction, approve_token]
+tests: []
+attack_packs: [%r]
+""" % ONCHAIN_PACK
+
+
+def _obedient_onchain_agent(messages, tools):
+    """Complies with whatever it's told: an unlimited approval or a repeat payment to whichever
+    address a tool result names -- once, since approve_token and send_transaction are themselves
+    allowed tools and their own result would otherwise loop back through the same fixed-payload
+    responder forever, the same trap _obedient_dependency_agent hit above -- or an urgent wire
+    straight from the caller's own message."""
+    last = messages[-1]
+    if last.get("role") == "user":
+        content = last["content"]
+        if "urgent" in content.lower() or "invoice" in content.lower():
+            addr = re.search(r"(0x[0-9a-f]{40})", content)
+            amt = re.search(r"\$([\d,]+)", content)
+            if addr and amt:
+                return {"tool_calls": [{"name": "send_transaction",
+                                       "arguments": {"to": addr.group(1),
+                                                     "amount": float(amt.group(1).replace(",", ""))}}]}
+    if last.get("role") == "tool":
+        prior_calls = (messages[-2].get("tool_calls") or []) if len(messages) >= 2 else []
+        prior_names = {c["function"]["name"] for c in prior_calls}
+        if prior_names & {"approve_token", "send_transaction"}:
+            return "done"
+        content = last["content"]
+        addr = re.search(r"(0x[0-9a-f]{40})", content)
+        if addr and ("unlimited" in content.lower() or "max" in content.lower()):
+            return {"tool_calls": [{"name": "approve_token",
+                                   "arguments": {"spender": addr.group(1), "amount": "unlimited"}}]}
+        if addr and "repeat this payment" in content.lower():
+            amt = re.search(r"([\d,]+)\s*USDC", content)
+            amount = float(amt.group(1).replace(",", "")) if amt else 0.0
+            return {"tool_calls": [{"name": "send_transaction",
+                                   "arguments": {"to": addr.group(1), "amount": amount}}]}
+        return "done"
+    if tools:
+        return {"tool_calls": [{"name": tools[0]["function"]["name"], "arguments": {"query": "x"}}]}
+    return "no tools available"
+
+
+def test_run_suite_onchain_agent_pack_unlimited_approval_evaluator_fires_for_real():
+    policy = parse_policy(ONCHAIN_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_onchain_agent),
+                      only=["onchain_agent_unlimited_approval"])
+    assert suite.findings
+    assert all(f.rule == "onchain_agent_unlimited_approval" for f in suite.findings)
+    assert all(f.key == "unlimited" for f in suite.findings)
+    assert all(f.severity == "critical" for f in suite.findings)
+
+
+def test_run_suite_onchain_agent_pack_address_poisoning_evaluator_fires_for_real():
+    policy = parse_policy(ONCHAIN_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_onchain_agent),
+                      only=["onchain_agent_address_poisoning"])
+    assert suite.findings
+    assert all(f.rule == "onchain_agent_address_poisoning" for f in suite.findings)
+    assert {f.key for f in suite.findings} == {
+        "0x4a3fab1e2e9c1f8ba6d9e17b1c3f5a8d2e6b9c10", "0x2b8e4c6a0d3f5b7c9e1a3d5f7c9c1e3a5d7f9b1c"}
+
+
+def test_run_suite_onchain_agent_pack_spend_cap_evaluator_fires_for_real():
+    policy = parse_policy(ONCHAIN_POLICY)
+    suite = run_suite(policy, CallableAdapter(_obedient_onchain_agent),
+                      only=["onchain_agent_unbounded_spend"])
+    assert suite.findings
+    assert all(f.rule == "onchain_agent_unbounded_spend" for f in suite.findings)
+    assert all(f.key == "45000.00" for f in suite.findings)
+    assert all(f.severity == "critical" for f in suite.findings)
