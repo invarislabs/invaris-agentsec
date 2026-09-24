@@ -121,8 +121,10 @@ to match one AgentSec already knows about; that's fine; the report and SARIF out
 See `examples/attack_packs/coding_agent_pack.py` for a complete example with two pack evaluators
 (a typosquatted-dependency check and an insecure-patch-content check) alongside a category that needs no
 custom evaluator at all, or `examples/attack_packs/browser_agent_pack.py` for the same pattern applied to
-a lookalike-domain check. See [Domain attack packs](domain-attack-packs.md) for both, plus the design for
-three more domains.
+a lookalike-domain check. Not every attack can even be expressed deterministically: see
+`examples/attack_packs/rag_pack.py`'s `rag_citation_spoofing` category for one built to rely on the judge
+model instead of any evaluator. See [Domain attack packs](domain-attack-packs.md) for all three, plus the
+design for two more domains.
 
 ## Add an evaluator
 
