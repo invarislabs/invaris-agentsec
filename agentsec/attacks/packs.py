@@ -90,6 +90,42 @@ def load_packs(specs: List[str], reserved: Dict[str, object]) -> Dict[str, PackC
     return merged
 
 
+def load_pack_evaluators(spec: str) -> List[type]:
+    """Import one pack and return its `EVALUATORS` list (Evaluator subclasses), if it has one.
+
+    Optional, unlike `CATEGORIES`: a pack that only adds scenarios using the built-in
+    marker/canary/forbidden-action checks does not need this. A pack needs its own evaluator when
+    the danger is in a tool call's *arguments* rather than which tool got called or whether output
+    contains a marker -- see `examples/attack_packs/coding_agent_pack.py` for a worked example.
+    """
+    # Imported lazily, same reason as the always-on import this module itself avoids at the top of
+    # agentsec/attacks/__init__.py: evaluators only need Evaluator's shape, not the whole package.
+    from ..evaluators.base import Evaluator
+
+    module = _import(spec)
+    evaluators = getattr(module, "EVALUATORS", [])
+    if not isinstance(evaluators, (list, tuple)):
+        raise PolicyError("attack pack %r: EVALUATORS must be a list of Evaluator subclasses" % spec)
+    for cls in evaluators:
+        if not (isinstance(cls, type) and issubclass(cls, Evaluator)):
+            raise PolicyError("attack pack %r: EVALUATORS must contain Evaluator subclasses, got %r"
+                              % (spec, cls))
+    return list(evaluators)
+
+
+def load_packs_evaluators(specs: List[str]) -> List[type]:
+    """Evaluators contributed by several packs, each spec imported once. Safe to call even when
+    every pack in `specs` only defines `CATEGORIES` -- it just contributes nothing then."""
+    seen: List[str] = []
+    merged: List[type] = []
+    for spec in specs:
+        if spec in seen:
+            continue
+        seen.append(spec)
+        merged.extend(load_pack_evaluators(spec))
+    return merged
+
+
 def check_pack_scenarios(spec: str, category: str, scenarios: List[Scenario]) -> None:
     """Basic sanity checks so a broken pack fails loudly instead of producing a silently empty or
     malformed run. Raised as PolicyError, same as any other policy problem."""

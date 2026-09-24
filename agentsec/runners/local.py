@@ -223,13 +223,23 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
         evaluator = JudgeEvaluator(policy.judge, judge_adapter)
     scenarios, warnings = build_scenarios(ScenarioContext(policy, seed), only=only, categories=categories,
                                           extra_categories=attack_packs)
+    # Same specs build_scenarios just resolved into scenarios (policy.attack_packs, plus any ad hoc
+    # ones passed in as `attack_packs`) can also carry their own evaluators; collect those once here
+    # rather than threading a second parameter through every caller of run_suite.
+    from ..attacks.packs import load_packs_evaluators  # lazy: avoid a hard, always-on import
+    pack_specs = list(policy.attack_packs or [])
+    for pc in (attack_packs or {}).values():
+        if pc.spec not in pack_specs:
+            pack_specs.append(pc.spec)
+    extra_evaluators = load_packs_evaluators(pack_specs) if pack_specs else []
     run_id = uuid.uuid4().hex[:8]  # isolates agent-side memory between runs
     results: List[ScenarioResult] = []
     for sc in scenarios:
         if progress:
             progress(sc)
         trace = run_scenario(sc, policy, adapter, run_id=run_id, host=host)
-        findings = evaluate_trace(sc, trace, policy, evaluator) if trace.outcome != "error" else []
+        findings = (evaluate_trace(sc, trace, policy, evaluator, extra_evaluators)
+                   if trace.outcome != "error" else [])
         results.append(ScenarioResult(sc, trace, findings))
     if evaluator is not None and evaluator.errors:
         warnings.append("judge: %d of %d judge calls failed or returned an unusable verdict"
