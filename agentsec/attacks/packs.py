@@ -126,6 +126,58 @@ def load_packs_evaluators(specs: List[str]) -> List[type]:
     return merged
 
 
+def load_pack_judge_checks(spec: str) -> Dict[str, object]:
+    """Import one pack and return its `JUDGE_CHECKS` mapping (name -> JudgeCheck), if it has one.
+
+    Optional, like `EVALUATORS`: most packs need no judge check at all, because their danger is
+    deterministically expressible (a marker, a canary, a forbidden call). Add one when it isn't --
+    see `examples/attack_packs/rag_pack.py`'s `rag_citation_spoofing` for a worked example, where
+    the only usable signal is "did the agent's answer act on an untrusted instruction", which the
+    built-in `goal_hijack` question already covers well enough that a dedicated one is optional but
+    lets a pack phrase the question in terms of its own domain.
+    """
+    # Imported lazily, same reason as load_pack_evaluators avoids a hard, always-on import.
+    from ..evaluators.base import JudgeCheck
+
+    module = _import(spec)
+    checks = getattr(module, "JUDGE_CHECKS", {})
+    if not isinstance(checks, dict):
+        raise PolicyError("attack pack %r: JUDGE_CHECKS must be a dict of name -> JudgeCheck" % spec)
+    for name, jc in checks.items():
+        if not isinstance(name, str) or not name:
+            raise PolicyError("attack pack %r: JUDGE_CHECKS names must be non-empty strings" % spec)
+        if not isinstance(jc, JudgeCheck):
+            raise PolicyError("attack pack %r: JUDGE_CHECKS[%r] must be a JudgeCheck, got %r"
+                              % (spec, name, jc))
+    return dict(checks)
+
+
+def load_packs_judge_checks(specs: List[str]) -> Dict[str, object]:
+    """Judge checks contributed by several packs, merged and name-checked.
+
+    Unlike evaluators (which just get concatenated and all run), judge checks are looked up by name
+    from `policy.judge.checks`, so a name collision -- with a built-in check or with another pack's
+    check -- would silently shadow one of them. Reject it instead, the same way `load_packs` rejects
+    a category name collision.
+    """
+    from ..policies import JUDGE_CHECKS
+
+    seen: List[str] = []
+    merged: Dict[str, object] = {}
+    for spec in specs:
+        if spec in seen:
+            continue
+        seen.append(spec)
+        for name, jc in load_pack_judge_checks(spec).items():
+            if name in JUDGE_CHECKS:
+                raise PolicyError("attack pack %r: judge check %r is a built-in check name" % (spec, name))
+            if name in merged:
+                raise PolicyError("attack pack %r: judge check %r is already defined by another attack pack"
+                                  % (spec, name))
+            merged[name] = jc
+    return merged
+
+
 def check_pack_scenarios(spec: str, category: str, scenarios: List[Scenario]) -> None:
     """Basic sanity checks so a broken pack fails loudly instead of producing a silently empty or
     malformed run. Raised as PolicyError, same as any other policy problem."""

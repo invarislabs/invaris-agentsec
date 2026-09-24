@@ -51,6 +51,26 @@ class Finding:
         return d
 
 
+@dataclass
+class JudgeCheck:
+    """A pack-provided question for the optional model-assisted judge.
+
+    Packs that export a ``JUDGE_CHECKS`` mapping of name -> JudgeCheck let a
+    policy's ``judge.checks`` list refer to them by name, the same way
+    ``EVALUATORS`` lets a policy's deterministic pass pick up pack rules.
+    Unlike the built-in checks (``goal_hijack``, ``paraphrased_leak``), a
+    pack-provided check runs unconditionally once per scenario whenever it
+    is selected -- there is no per-scenario gating -- so the ``question``
+    itself is responsible for asking the judge to say "no violation" when
+    it doesn't apply.
+    """
+
+    question: str
+    title: str
+    policy_violated: str
+    remediation: str
+
+
 def excerpt(trace, *seqs: int) -> List[Dict[str, Any]]:
     wanted = set(seqs)
     return [e.to_dict() for e in trace.events if e.seq in wanted]
