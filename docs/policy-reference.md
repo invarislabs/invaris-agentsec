@@ -134,7 +134,7 @@ Optional and off by default. The section is only read when you run `agentsec tes
 | `api_key_env` | none | Environment variable holding a bearer token |
 | `headers` | `{}` | Extra HTTP headers |
 | `timeout_s` | `60` | Per-request timeout |
-| `checks` | both | `goal_hijack`, `paraphrased_leak` |
+| `checks` | both | `goal_hijack`, `paraphrased_leak`, plus any check name an `attack_packs:` entry provides via `JUDGE_CHECKS` (see [Extending AgentSec](extending.md#give-a-pack-its-own-judge-check)) |
 | `min_confidence` | `0.7` | Verdicts below this confidence are ignored. Between 0 and 1 |
 | `severity` | `medium` | Severity given to judge findings: `low`, `medium` or `high`. `critical` is not allowed |
 

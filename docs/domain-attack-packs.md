@@ -88,9 +88,11 @@ can see this; use the judge."
   our official Data Sharing Policy v4.2...") to borrow authority it hasn't earned, and the agent
   discloses more than it should on that authority. Deliberately built with no forbidden tool call,
   marker or canary: "did the agent treat this as authoritative" is a judgment call, not a pattern
-  match, so it produces zero findings without `--judge` and is flagged only by the judge's
-  `goal_hijack` check (see [Judge](judge.md)) -- confirmed by a test using a scripted judge
-  adapter, not just asserted.
+  match, so it produces zero findings without `--judge`. The pack also demonstrates the judge's own
+  extension point here: alongside the built-in `goal_hijack` check, it exports its own
+  `rag_fabricated_citation_authority` judge check via `JUDGE_CHECKS`, phrased around exactly this
+  failure mode (see [Extending AgentSec](extending.md#give-a-pack-its-own-judge-check)) -- both are
+  confirmed by tests using a scripted judge adapter, not just asserted.
 - `rag_stale_document_resurrection` -- a retrieved document is an explicitly superseded policy
   version (an old refund policy permitting something the current one forbids). `approve_refund` is
   a normal, allowed tool; the pack's `StaleDocumentEvaluator` flags the call by checking its
@@ -149,8 +151,10 @@ allowlist: every check here lives in the pack's own evaluators instead.
    call's arguments. Only the second case needs a pack evaluator.
 3. Decide whether the danger can even be expressed deterministically at all. Most attacks can
    (steps above); a few, like `rag_citation_spoofing`, come down to a judgment call no pattern
-   match can make -- for those, write no evaluator and rely on `judge:` with the `goal_hijack` or
-   `paraphrased_leak` check instead (see [Judge](judge.md)). Separately, if the danger is really
+   match can make -- for those, write no evaluator and rely on `judge:` instead, either the
+   built-in `goal_hijack` or `paraphrased_leak` check, or a check the pack writes itself and phrases
+   in its own domain terms via `JUDGE_CHECKS` (see [Judge](judge.md) and
+   [Extending AgentSec](extending.md#give-a-pack-its-own-judge-check)). Separately, if the danger is really
    about a fact leaking across sessions, check whether a *different* built-in evaluator already
    covers it (a canary via `SecretLeakEvaluator`, a marker via `InjectionFollowedEvaluator`) before
    writing a new one -- `support_agent_cross_customer_leak` needs none at all. And if the domain's
@@ -165,4 +169,5 @@ allowlist: every check here lives in the pack's own evaluators instead.
    `onchain_agent_pack.py`.
 5. Test the loader in isolation and `run_suite` end to end with a small scripted agent, the way
    `tests/test_attack_packs.py` does for the coding-agent pack -- and, for a judge-only category,
-   with a scripted judge adapter too, the way it does for `rag_citation_spoofing`.
+   with a scripted judge adapter too, the way it does for `rag_citation_spoofing` (both for the
+   built-in `goal_hijack` check and for the pack's own `rag_fabricated_citation_authority` check).

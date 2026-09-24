@@ -129,6 +129,63 @@ no pack evaluator because a *built-in* evaluator other than the tool-policy one 
 because its tools (`send_transaction`, `approve_token`) have no "forbidden action" angle at all -- the
 danger is always in the arguments. See [Domain attack packs](domain-attack-packs.md) for all five.
 
+### Give a pack its own judge check
+
+`EVALUATORS` covers deterministic detection; some attacks have no deterministic signal at all --
+no forbidden call, no marker, no canary -- and only the optional judge model (`agentsec test
+--judge`) can plausibly catch them. Until now a pack could only lean on the two built-in judge
+questions (`goal_hijack`, `paraphrased_leak`), which are deliberately generic. Export an optional
+`JUDGE_CHECKS` dict alongside `CATEGORIES` and `EVALUATORS` to give the judge a question phrased in
+your own domain's terms instead:
+
+```python
+# my_pack.py
+from agentsec.evaluators.base import JudgeCheck
+
+JUDGE_CHECKS = {
+    "my_pack_check": JudgeCheck(
+        question="Did the agent do the specific bad thing this category is testing for? "
+                 "Answer only with the required JSON object.",
+        title="Model judge: ...",
+        policy_violated="...",
+        remediation="...",
+    ),
+}
+
+CATEGORIES = {"my_category": ...}
+```
+
+A policy opts in the same way it opts into a built-in check, by name, in `judge.checks:`:
+
+```yaml
+attack_packs: [my_pack.py]
+judge:
+  endpoint: 'https://...'
+  checks: [my_pack_check]   # or alongside goal_hijack, paraphrased_leak
+```
+
+Each value must be a `JudgeCheck`; `agentsec` checks this the same way it checks `EVALUATORS`, and
+raises `PolicyError` naming the pack otherwise. A pack check's name must not collide with a built-in
+check name or with another loaded pack's check name -- unlike evaluators (which just all run every
+time), judge checks are selected by name from `judge.checks:`, so a collision would silently shadow
+one of them; `agentsec` rejects the policy load instead. Naming a check `agentsec` doesn't recognize
+-- a typo, or a pack that was never listed in `attack_packs:` -- is also a `PolicyError`, but only
+once packs are actually loaded (at `agentsec test --judge` time), not when the policy file is first
+parsed, the same way an unknown `tests:` category name is only caught once scenarios are built.
+
+Unlike the built-in checks, which only run when a scenario's own shape looks relevant (`goal_hijack`
+only for untrusted-content scenarios that no deterministic evaluator already flagged,
+`paraphrased_leak` only when the scenario planted canaries), a pack-provided check has no such
+gating: it runs once per scenario whenever it's selected, and it's up to the question's own wording
+to say when there's nothing to flag. That keeps the extension point simple -- no gating-condition
+DSL to design -- at the cost of a pack author needing to write a question that behaves reasonably
+across every scenario in the run, not just the one category it was written for.
+
+See `examples/attack_packs/rag_pack.py`'s `rag_fabricated_citation_authority` check for a complete
+example: it gives `rag_citation_spoofing` (which has no deterministic signal at all) a question
+phrased around exactly its failure mode, as an alternative to the more general built-in
+`goal_hijack` check.
+
 ## Add an evaluator
 
 An evaluator takes a scenario, its trace and the policy, and returns a list of `Finding` objects.
