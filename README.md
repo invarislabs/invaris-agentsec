@@ -62,7 +62,7 @@ pip install invaris-agentsec
 
 For a local checkout instead (to run the examples, or to contribute), install from a clone with `pip install -e .`.
 
-Create an `agentsec.yaml` policy:
+Create an `agentsec.yaml` policy in the directory you'll run `agentsec test` from -- it looks for `./agentsec.yaml` by default (or pass `--policy path/to/file.yaml` to use a different location or name). Write it by hand as below, or scaffold one with `agentsec init` (writes a starter `agentsec.yaml`; won't overwrite an existing one). See the [Policy reference](docs/policy-reference.md) for every available field.
 
 ```yaml
 version: "1"
