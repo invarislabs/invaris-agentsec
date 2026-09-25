@@ -260,7 +260,7 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, MCP) and attack packs
-tests/                # Unit and end-to-end tests (267+ tests)
+tests/                # Unit and end-to-end tests (310+ tests)
 ```
 
 ### Core components
