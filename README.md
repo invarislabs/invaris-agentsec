@@ -400,7 +400,7 @@ trademarks of Invaris Labs and are not covered by that license; see [NOTICE](NOT
 
 ## About Invaris Labs
 
-Invaris Labs is building testing and verification infrastructure for trustworthy autonomous and decentralized systems. Its work combines adversarial simulation, protocol engineering, AI security, and developer tooling.
+Invaris Labs is building the security infrastructure for autonomous AI agents.
 
 ## Contact
 

@@ -21,6 +21,7 @@ full list. Planned work is in [Future Work](../README.md#future-work) and is not
 | [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
 | [Domain attack packs](domain-attack-packs.md) | See all five reference attack packs: coding-agent, browser-agent, RAG, customer-support and on-chain agents |
+| [Blog](blogs.md) | Posts from the people building AgentSec |
 
 ## What AgentSec does in one paragraph
 
@@ -47,4 +48,4 @@ rules cannot see, and its findings are labelled as model-assisted.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
 - Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
 - Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
-- 177 automated tests (182 with the optional LangGraph extra installed).
+- 310 automated tests (315 with the optional LangGraph extra installed).
