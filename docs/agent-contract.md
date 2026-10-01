@@ -82,8 +82,9 @@ Because the calls are real on your side, run them only against sandboxed or mock
 
 ## The reference agents
 
-There are two, both in `examples/`, both offline, and both with a vulnerable mode and a `--safe` mode. Use the rule-based one to see every finding type,
-and the RAG-backed one to see what testing an agent that runs its own tools looks like.
+Two live directly under `examples/`, both offline, and both with a vulnerable mode and a `--safe` mode. Use the rule-based one to see every finding type,
+and the RAG-backed one to see what testing an agent that runs its own tools looks like. Three more, modeled on real daily-use AI agent products rather than
+a generic RAG bot, live in `examples/real_world_agents/` -- see [below](#the-real-world-reference-agents).
 
 ### The rule-based reference agent
 
@@ -159,3 +160,23 @@ Against safe mode: 22 of 22 pass.
 
 **One difference to be aware of.** In the document-based scenarios AgentSec asks an ordinary question ("Search the documents for the vendor onboarding policy..."). Against this agent the poisoned content comes from the agent's own
 corpus, not from AgentSec's simulated tool result. That is the realistic setup for a RAG application, and it means those findings point at a real document in your corpus that needs cleaning or access control.
+
+### The real-world reference agents
+
+`examples/real_world_agents/` has three more deterministic, rule-based reference agents, each paired one-to-one with a domain attack pack: `coding_assistant`
+(an IDE copilot / autonomous coding agent, paired with `coding_agent_pack.py`), `support_assistant` (a help-desk copilot, paired with `support_agent_pack.py`),
+and `browser_assistant` (a browser-automation agent, paired with `browser_agent_pack.py`). They speak the same HTTP contract as the two agents above and share
+a `_common.py` module for the HTTP plumbing and a few parsing primitives, so each `server.py` stays focused on its own domain-specific behavior.
+
+```bash
+python examples/real_world_agents/coding_assistant/server.py             # vulnerable, port 8010
+python examples/real_world_agents/support_assistant/server.py            # vulnerable, port 8020
+python examples/real_world_agents/browser_assistant/server.py            # vulnerable, port 8030
+# add --safe to any of the above for the hardened variant
+agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
+```
+
+Each one's `agentsec.yaml` wires in the matching attack pack alongside the eight built-in categories, so `agentsec test` runs the full generic + domain-specific
+suite in one pass. Against all three, vulnerable mode currently fails every scenario (121 scenarios, 121 with findings) and `--safe` passes every scenario
+(121 of 121), the same clean contrast as the two agents above. See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md) for what
+each one models and why.
