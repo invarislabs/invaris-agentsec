@@ -152,6 +152,8 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **A RAG-style agent.** `examples/rag_agent` owns a small document corpus and runs its tools itself, reporting the calls to AgentSec. Start it with `python examples/rag_agent/server.py` (add `--safe` for the hardened variant) and test it with `agentsec test -p examples/rag_agent/agentsec.yaml`. See [`docs/agent-contract.md`](docs/agent-contract.md#the-rag-backed-reference-agent).
 
+**Real-world reference agents.** `examples/real_world_agents` has three more vulnerable/`--safe` reference agents modeled on daily-use AI agent products -- a coding assistant, a customer-support assistant and a browser-automation assistant -- each paired one-to-one with its matching domain attack pack below. See [`examples/real_world_agents/README.md`](examples/real_world_agents/README.md) and [`docs/agent-contract.md`](docs/agent-contract.md#the-real-world-reference-agents).
+
 **Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions. The packaged GitHub Action wires this into pull requests automatically (`baseline-report`), posting and updating a PR comment with what's new or worse; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
 
 **MCP servers.** `agentsec mcp scan --command "python server.py"` lists a server's tools, resources and prompts (never calls, reads or fetches any of them) and flags poisoned descriptions, hidden characters, tool shadowing, homoglyph tool-name impersonation, lying read-only/destructive annotations, and changed definitions. See [`docs/mcp-testing.md`](docs/mcp-testing.md).
@@ -259,8 +261,8 @@ agentsec/
 ├── api.py            # Python API (AgentTarget, SecuritySuite)
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
-examples/             # Vulnerable reference agents (rule-based, RAG-backed, MCP) and attack packs
-tests/                # Unit and end-to-end tests (310+ tests)
+examples/             # Vulnerable reference agents (rule-based, RAG-backed, real-world, MCP) and attack packs
+tests/                # Unit and end-to-end tests (311+ tests)
 ```
 
 ### Core components

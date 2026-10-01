@@ -44,6 +44,7 @@ history is resent on every step. That keeps runs independent and makes any scena
 | `agentsec/cli` | The `agentsec` command |
 | `action.yml`, `action/` | The packaged GitHub Action and its helper scripts |
 | `examples/vulnerable_rag_agent`, `examples/rag_agent` | Reference agents used for demos and end-to-end tests |
+| `examples/real_world_agents` | Reference agents modeled on real daily-use AI agent products (coding, customer-support, browser assistants), each paired with its matching attack pack |
 | `examples/mcp_agent` | Reference agent that uses its tools through the AgentSec MCP host |
 | `examples/mcp_servers` | Demo MCP server with clean, poisoned and rug-pull modes |
 

@@ -47,5 +47,5 @@ rules cannot see, and its findings are labelled as model-assisted.
 - An opt-in model-assisted judge, never critical and always labelled.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
 - Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
-- Two deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, and a RAG-backed one that owns its documents and runs tools server-side.
-- 310 automated tests (315 with the optional LangGraph extra installed).
+- Five deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, a RAG-backed one that owns its documents and runs tools server-side, and three modeled on real daily-use AI agent products (coding, customer-support and browser assistants), each paired with a matching domain attack pack.
+- 311 automated tests (316 with the optional LangGraph extra installed).
