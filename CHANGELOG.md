@@ -3,6 +3,22 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## Unreleased
+
+- New: three more reference agents in `examples/real_world_agents/` (`coding_assistant`,
+  `support_assistant`, `browser_assistant`), modeled on real daily-use AI agent products rather
+  than a generic RAG bot, each with a vulnerable and a `--safe` mode and paired one-to-one with an
+  existing domain attack pack (`coding_agent_pack.py`, `support_agent_pack.py`,
+  `browser_agent_pack.py`). See [`examples/real_world_agents/README.md`](examples/real_world_agents/README.md)
+  and [Agent contract](docs/agent-contract.md#the-real-world-reference-agents).
+- Fix: `SecretLeakEvaluator` decided whether a canary's reappearance in the same conversation was
+  benign by checking `scenario.category == "memory_poisoning"` literally, so any other category
+  with the same shape (canaries plus a `Followup(same_session=False)`) -- including the new
+  `support_agent_cross_customer_leak` category above -- got a false positive on its own benign,
+  same-session acknowledgment, and a genuine cross-session leak was mislabeled as a retrieved-
+  document disclosure instead of a memory leak. Now keyed off the scenario's own shape instead of
+  its category name. Covered by two new tests in `tests/test_evaluators.py`.
+
 ## 0.6.0
 
 - `agentsec mcp scan` now scans MCP resources and prompts, not just tools: poisoned descriptions
