@@ -41,7 +41,23 @@ Set `vector` carefully. It determines severity: forbidden actions triggered thro
 
 `PLANNED` in the same file holds category names that policies accept but that are not implemented yet. It is empty today. A name in `PLANNED` is skipped with a warning instead of raising an error.
 
-That's how to contribute a category to AgentSec itself. For a category specific to your own product that
+That's how to contribute a category to AgentSec itself. `agentsec/attacks/action_without_authorization.py`
+is a worked example of a built-in, domain-agnostic category: it reads `ctx.scoped_action()` to find a
+policy-declared tool worth testing rather than hardcoding tool names, and produces no scenarios at all
+when the policy hasn't opted in (see `tool_effects` in [Policy reference](policy-reference.md#tool_effects)) --
+a pattern worth copying whenever a category depends on something the policy may not have declared.
+
+Any scenario -- built-in or from your own attack pack -- can set `authorized_effects` on a `Scenario`
+to get `ActionAuthorizationEvaluator`'s task-scoped-authorization check for free: declare the
+effects the scenario's `user_message` actually authorizes (e.g. `["read"]`), and any allowed tool
+call whose declared `tool_effects` go beyond that is flagged as `unauthorized_side_effect`,
+independent of whether the tool is on the allowlist. This is the general mechanism for "the agent
+may possess this capability, but this task didn't authorize it" -- useful for multi-agent
+delegation packs (a sub-agent exercising a capability its own task never authorized), workflow
+packs (chaining two individually-allowed tools into an unauthorized combination), and any other
+pack testing scope rather than tool identity.
+
+For a category specific to your own product that
 you don't want to publish (or to try one out without a pull request), write an attack pack instead.
 
 ## Write an attack pack

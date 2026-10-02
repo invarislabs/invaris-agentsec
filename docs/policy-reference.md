@@ -80,6 +80,7 @@ judge:
 | `agent` | yes | | How to reach the agent |
 | `allowed_tools` | no | none | Tools the agent may call. If omitted, no allowlist is enforced. If set to `[]`, any tool call is a violation |
 | `forbidden_actions` | no | `[]` | Actions that must never be attempted. Also used as the names in attack payloads |
+| `tool_effects` | no | `{}` | What each allowed tool's call actually does (read, write, delete, ...), used to tell whether a *specific task* authorized it. See [`tool_effects`](#tool_effects) |
 | `secrets` | no | `[]` | Values that must never appear in agent output. Use synthetic credentials only |
 | `limits` | no | see below | Operating budgets |
 | `spend_limits` | no | none | Per-transaction and running-total caps on tools that move money. Not enforced unless present |
@@ -149,6 +150,41 @@ a lookalike/typosquat heuristic.
 | `addresses` | required | The allowed values. Must list at least one |
 | `case_sensitive` | `false` | Whether matching is case-sensitive |
 
+## `tool_effects`
+
+What each tool's call actually *does*, independent of whether it's allowed at all. `allowed_tools`
+and `forbidden_actions` answer "can the agent ever call this tool"; `tool_effects` is what lets a
+scenario instead ask "did *this task* authorize *this effect*" -- a question the allowlist alone
+cannot answer, because the same tool can be legitimate for one request and not for another. A
+coding assistant asked to fix something may legitimately call `write_file`; the same agent, asked
+only to review something, should not -- same tool, same policy, different task. See
+[`action_without_authorization`](attack-catalog.md#action_without_authorization) and
+`agentsec/evaluators/authorization.py` (`ActionAuthorizationEvaluator`, rule `unauthorized_side_effect`).
+
+```yaml
+tool_effects:
+  read_pr_comments: [read]
+  search_packages: [read]
+  install_package: [write, execute, network]
+  write_file: [write]
+  run_tests: [execute]
+```
+
+Each key is a tool name; each value is a list of one or more free-form effect tags. There is no
+fixed enum -- use whatever vocabulary fits your agent -- but scenarios and docs in this project use:
+`read`, `write`, `delete`, `execute`, `network`, `external_communication`, `financial`,
+`credential_access`, `git_mutation`, `deployment`, `persistence`, `delegation`,
+`browser_state_change`, `system_change`.
+
+A tool left out of `tool_effects` is treated as **unknown**, never as "read-only" -- the
+`action_without_authorization` category produces no scenarios at all unless at least one allowed
+tool is declared with an effect beyond `read`, and `ActionAuthorizationEvaluator` never flags a
+tool call whose effects weren't declared. This project does not guess which of an agent's tools is
+state-changing from its name.
+
+This section only matters to scenarios that declare their own `authorized_effects` (currently just
+`action_without_authorization`); every other built-in and pack scenario ignores it.
+
 ## `secrets`
 
 Each entry is either a literal value or `env:NAME`, which is read from your environment at run time.
@@ -162,8 +198,12 @@ GitHub tokens, private key headers and long bearer tokens.
 ## `tests`
 
 Valid categories: `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`, `unauthorized_tool_use`,
-`tool_output_poisoning`, `unsafe_retrieved_documents`, `loop_and_budget_limits`, `memory_poisoning`. Leaving `tests` empty runs all
-of them. Anything else is an error that lists the valid names.
+`tool_output_poisoning`, `unsafe_retrieved_documents`, `loop_and_budget_limits`, `memory_poisoning`,
+`action_without_authorization`. Leaving `tests` empty runs all of them. Anything else is an error that lists the valid names.
+
+`action_without_authorization` produces no scenarios unless [`tool_effects`](#tool_effects) declares
+at least one allowed tool with an effect beyond `read` -- it never guesses which tool is
+state-changing, so an agent policy that hasn't adopted `tool_effects` yet is unaffected by listing it.
 
 Drop `memory_poisoning` from the list if your agent has no long-term memory: it passes trivially, but it doubles the requests for those scenarios.
 
@@ -191,6 +231,7 @@ Optional and off by default. The section is only read when you run `agentsec tes
 - Give the agent a synthetic secret in its environment or system prompt, and list the same value under `secrets`.
   Without it, secret extraction can only catch credential-shaped strings.
 - Set `retrieval_tools` if only some tools return untrusted content, so writes like `create_draft` are not fed attack payloads.
+- Declare `tool_effects` for your write/delete/execute/financial/... tools if you want `action_without_authorization` scenarios: without it, that category silently produces nothing rather than guessing.
 - Step and tool-call limits apply to each conversation, so a memory scenario gets a fresh budget for its follow-up.
 - Keep limits realistic for the agent's normal behavior. A limit set below what a healthy task needs will produce findings on benign runs.
 - Declare `spend_limits`/`address_allowlist` for any tool that moves money or picks a destination, even if you also load a domain attack pack (see [Domain attack packs](domain-attack-packs.md)): a pack's own scenario-specific evaluator and these core, domain-agnostic checks are complementary and both run.

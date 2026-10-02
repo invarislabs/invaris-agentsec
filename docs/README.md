@@ -36,7 +36,7 @@ rules cannot see, and its findings are labelled as model-assisted.
 
 ## Current status
 
-- 8 attack categories, 34 scenarios, all deterministic and replayable with a seed.
+- 9 attack categories, 36 scenarios, all deterministic and replayable with a seed.
 - Terminal, JSON, HTML, Markdown and SARIF reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
 - `agentsec mcp scan` to check MCP server tool, resource and prompt definitions (static, never calls, reads or fetches any of them), and `agentsec test --mcp-listen` to test an agent that uses MCP.
@@ -48,4 +48,4 @@ rules cannot see, and its findings are labelled as model-assisted.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
 - Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, and a `LangChainAdapter` for LangChain and LangGraph agents.
 - Five deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, a RAG-backed one that owns its documents and runs tools server-side, and three modeled on real daily-use AI agent products (coding, customer-support and browser assistants), each paired with a matching domain attack pack.
-- 311 automated tests (316 with the optional LangGraph extra installed).
+- 325 automated tests (330 with the optional LangGraph extra installed).

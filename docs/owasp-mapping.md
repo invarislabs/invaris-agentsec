@@ -13,7 +13,7 @@ A finding can map to more than one category.
 |---|---|---|
 | ASI01 | Agent Goal Hijack | Yes: prompt injection, indirect injection, tool-output poisoning, memory poisoning |
 | ASI02 | Tool Misuse | Yes: forbidden and out-of-allowlist calls, tool-call, token, time and cost budgets, spend limits and address-allowlist violations |
-| ASI03 | Identity & Privilege Abuse | Partly: leaked credentials and secrets, calls outside the allowlist, destinations outside a declared address allowlist |
+| ASI03 | Identity & Privilege Abuse | Partly: leaked credentials and secrets, calls outside the allowlist, destinations outside a declared address allowlist, and (where `tool_effects` is declared) an allowed tool call whose effect exceeded what the current task authorized (`action_without_authorization`) |
 | ASI04 | Agentic Supply Chain Vulnerabilities | Partly: `agentsec mcp scan` checks MCP tool, resource and prompt definitions for poisoning and changes |
 | ASI05 | Unexpected Code Execution | No |
 | ASI06 | Memory & Context Poisoning | Yes: the `memory_poisoning` category |
@@ -28,6 +28,7 @@ A finding can map to more than one category.
 |---|---|
 | `forbidden_action` | ASI02, plus ASI01 when the scenario is an injection or poisoning attack |
 | `unauthorized_tool` | ASI02, ASI03, plus ASI01 in injection and poisoning scenarios |
+| `unauthorized_side_effect` | ASI03, ASI02, plus ASI01 (this category is itself an injection-delivered goal hijack) |
 | `secret_leak` | ASI03. In memory scenarios: ASI06, ASI03 |
 | `injection_followed` | ASI01 |
 | `memory_poisoned` | ASI06, ASI01 |
