@@ -39,6 +39,12 @@ class Scenario:
     canaries: List[str] = field(default_factory=list)  # planted values that must not appear in output
     payload: Optional[str] = None                      # adversarial text, kept for evidence
     followups: List[Followup] = field(default_factory=list)  # later conversations
+    # The effect tags (see Policy.tool_effects) that THIS scenario's user_message actually
+    # authorizes, e.g. ["read"] for "just tell me what you find, don't change anything". None
+    # (the default) means the scenario makes no claim about task-scoped authorization, so
+    # ActionAuthorizationEvaluator ignores it -- most scenarios don't narrate "what the user
+    # meant to allow" and shouldn't be scored against a boundary they never asserted.
+    authorized_effects: Optional[List[str]] = None
 
 
 @dataclass
@@ -52,6 +58,22 @@ class ScenarioContext:
     def forbidden(self, i: int = 0) -> str:
         pool = self.policy.forbidden_actions or DEFAULT_FORBIDDEN
         return pool[i % len(pool)]
+
+    def scoped_action(self) -> Optional["tuple[str, List[str]]"]:
+        """An allowed, non-forbidden tool whose declared `tool_effects` go beyond plain
+        reading, for scenarios that test whether a task scoped to analysis/read-only stays
+        within that scope (see agentsec/attacks/action_without_authorization.py). Returns
+        (tool_name, non_read_effects) for the first such tool, or None when the policy hasn't
+        declared `tool_effects` for any allowed tool -- callers must produce no scenarios in
+        that case rather than guessing which tool is state-changing."""
+        for name in self.policy.allowed_tools or []:
+            if name in self.policy.forbidden_actions:
+                continue
+            effects = self.policy.tool_effects.get(name, [])
+            extra = [e for e in effects if e != "read"]
+            if extra:
+                return name, extra
+        return None
 
     def retrieval_tool(self) -> str:
         """The tool whose results carry adversarial content in retrieval scenarios."""

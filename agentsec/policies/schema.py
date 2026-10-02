@@ -97,6 +97,16 @@ class Policy:
     limits: Limits = field(default_factory=Limits)
     spend_limits: Optional[SpendLimits] = None  # None = not enforced
     address_allowlist: Optional[AddressAllowlist] = None  # None = not enforced
+    # What each tool call actually *does*, independent of whether the tool is allowed at all.
+    # Lets a scenario ask "is this effect within the scope THIS task authorized", which
+    # allowed_tools/forbidden_actions cannot express (the same tool can be legitimate for one
+    # task and not for another -- see agentsec/attacks/action_without_authorization.py).
+    # Tags are a free-form vocabulary (read, write, delete, execute, network,
+    # external_communication, financial, credential_access, git_mutation, deployment,
+    # persistence, delegation, browser_state_change, system_change, ... -- see
+    # docs/policy-reference.md#tool_effects); unset for a tool means "unknown", not "read-only",
+    # so evaluators that rely on this never guess a tool's effect from its name.
+    tool_effects: Dict[str, List[str]] = field(default_factory=dict)
     tests: List[str] = field(default_factory=list)
     attack_packs: List[str] = field(default_factory=list)  # extra scenario packs to load (see agentsec.attacks.packs)
     judge: Optional[JudgeConfig] = None
@@ -128,6 +138,7 @@ class Policy:
             },
             "allowed_tools": self.allowed_tools,
             "forbidden_actions": self.forbidden_actions,
+            "tool_effects": self.tool_effects,
             "secrets_count": len(self.secrets),
             "limits": self.limits.__dict__.copy(),
             "spend_limits": ({"tools": sl.tools, "amount_field": sl.amount_field,
