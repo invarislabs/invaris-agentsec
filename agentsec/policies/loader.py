@@ -7,8 +7,8 @@ import yaml
 from .schema import (JUDGE_CHECKS, POLICY_VERSION, AddressAllowlist, AgentConfig, JudgeConfig, Limits, Policy,
                      PolicyError, Pricing, SpendLimits, _sha)
 
-_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "secrets", "limits", "spend_limits",
-       "address_allowlist", "tests", "attack_packs", "judge"}
+_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "tool_effects", "secrets", "limits",
+       "spend_limits", "address_allowlist", "tests", "attack_packs", "judge"}
 _JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
           "declare_tools", "stream", "retrieval_tools", "pricing"}
@@ -103,6 +103,19 @@ def _address_allowlist(raw: Dict[str, Any]) -> Optional[AddressAllowlist]:
     )
 
 
+def _tool_effects(raw: Dict[str, Any]) -> Dict[str, List[str]]:
+    value = raw.get("tool_effects")
+    if value is None:
+        return {}
+    mapping = _mapping("tool_effects", value)
+    out: Dict[str, List[str]] = {}
+    for tool, effects in mapping.items():
+        if not isinstance(tool, str) or not tool:
+            raise PolicyError("tool_effects keys must be non-empty tool-name strings")
+        out[tool] = _str_list("tool_effects.%s" % tool, effects)
+    return out
+
+
 def parse_policy(text: str) -> Policy:
     try:
         raw = yaml.safe_load(text)
@@ -189,6 +202,7 @@ def parse_policy(text: str) -> Policy:
         agent=agent,
         allowed_tools=_str_list("allowed_tools", allowed) if allowed is not None else None,
         forbidden_actions=_str_list("forbidden_actions", raw.get("forbidden_actions", [])),
+        tool_effects=_tool_effects(raw),
         secrets=_str_list("secrets", raw.get("secrets", [])),
         limits=limits,
         spend_limits=_spend_limits(raw),

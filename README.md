@@ -37,9 +37,10 @@ The test suite covers:
 - Excessive tool calls, token usage, and cost
 - Infinite loops and missing termination conditions
 - Unsafe handling of retrieved documents
+- Actions a tool is globally allowed to perform but that the *current task* never authorized (`action_without_authorization`, when the policy declares `tool_effects`) -- see [Policy reference](docs/policy-reference.md#tool_effects)
 - Behavioural regressions across models and prompts, via `agentsec compare`
 
-Identity and privilege misuse and multi-agent trust and delegation failures are not covered yet; see [Future Work](#future-work). Unauthorized financial or on-chain actions are covered, but not by the default eight categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md).
+Multi-agent trust and delegation failures are not covered yet; see [Future Work](#future-work). Identity and privilege misuse is partly covered (calls outside the allowlist, destinations outside a declared address allowlist, and task-scoped authorization above), but not exhaustively -- see [OWASP mapping](docs/owasp-mapping.md). Unauthorized financial or on-chain actions are covered, but not by the default nine categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md).
 
 Findings are mapped to the [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) (ASI01 to ASI10).
 
@@ -262,7 +263,7 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, real-world, MCP) and attack packs
-tests/                # Unit and end-to-end tests (311+ tests)
+tests/                # Unit and end-to-end tests (325+ tests)
 ```
 
 ### Core components

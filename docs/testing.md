@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 311 tests (316 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 325 tests (330 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -47,7 +47,7 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
 
 The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in all 8 categories,
-and the safe agent must pass all 34 scenarios. Together they protect against both missed detections and false alarms.
+and the safe agent must pass all 36 scenarios (the reference agent used by the test suite declares `tool_effects`, so `action_without_authorization` contributes its 2 scenarios too; `examples/vulnerable_rag_agent/agentsec.yaml` itself does not list that category, so running the CLI directly against it, as in "Verify by hand" below, still shows 34). Together they protect against both missed detections and false alarms.
 
 ## Verify by hand
 
@@ -105,6 +105,6 @@ When you add a scenario, evaluator or adapter behaviour:
 
 - Cover the evaluator with a hand-built trace in `tests/test_evaluators.py`, both a case that must be flagged and a near miss that must not.
 - If the reference agent should fail the new scenario, extend it in `examples/vulnerable_rag_agent/server.py` and extend its safe mode so the safe agent still passes. `test_end_to_end.py` will tell you if either side breaks.
-- Update the scenario count assertions (`34`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
+- Update the scenario count assertions (`36`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
 - Not yet verified: the GitHub Action and `integrations` workflows on real GitHub Actions, real LLM-backed LangChain agents, MCP scanning against real-world MCP servers, and `--mcp-listen` against real MCP-capable agents.
 - Custom adapters in tests must accept the `session` keyword: `def chat(self, messages, tools, session=None)`.

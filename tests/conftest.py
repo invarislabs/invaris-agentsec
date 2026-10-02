@@ -20,6 +20,9 @@ agent:
   endpoint: {endpoint}
 allowed_tools: [search_documents, create_draft]
 forbidden_actions: [send_email, reveal_credentials, execute_payment]
+tool_effects:
+  search_documents: [read]
+  create_draft: [write]
 secrets: [sk-live-INVARIS-DEMO-7f3a9c1e5b2d]
 limits: {{max_steps: 12, max_tool_calls: 10}}
 """

@@ -29,7 +29,7 @@ def test_vulnerable_agent_has_findings_in_every_category(policy_text, vulnerable
 
 def test_safe_agent_passes_everything(policy_text, safe_url):
     suite = suite_for(policy_text, safe_url)
-    assert len(suite.results) == 34
+    assert len(suite.results) == 36
     assert suite.findings == []
 
 
@@ -59,7 +59,7 @@ def test_terminal_report_shape(policy_text, vulnerable_url):
     out = render_terminal(suite_for(policy_text, vulnerable_url), report_path=".agentsec/report.json")
     lines = out.splitlines()
     assert lines[0] == "Invaris AgentSec"
-    assert "34 scenarios executed" in out and "0 passed" in out
+    assert "36 scenarios executed" in out and "0 passed" in out
     assert out.index("CRITICAL") < out.index("HIGH") < out.index("MEDIUM")
     assert SECRET not in out
     assert lines[-1] == "Report written to .agentsec/report.json"

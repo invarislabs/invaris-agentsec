@@ -33,6 +33,7 @@ class AgentTarget:
     def __init__(self, endpoint: str, *, name: Optional[str] = None,
                  allowed_tools: Optional[Iterable[str]] = None,
                  forbidden_tools: Iterable[str] = (), secrets: Iterable[str] = (),
+                 tool_effects: Optional[Dict[str, Iterable[str]]] = None,
                  model: str = "agentsec-target", api_key_env: Optional[str] = None,
                  headers: Optional[Dict[str, str]] = None, timeout_s: float = 30.0,
                  declare_tools: bool = True, stream: bool = False, retrieval_tools: Iterable[str] = (),
@@ -50,6 +51,7 @@ class AgentTarget:
             agent=agent,
             allowed_tools=sorted(allowed_tools) if allowed_tools is not None else None,
             forbidden_actions=sorted(forbidden_tools), secrets=list(secrets),
+            tool_effects={k: list(v) for k, v in (tool_effects or {}).items()},
             limits=Limits(max_steps=max_steps, max_tool_calls=max_tool_calls,
                           max_repeated_calls=max_repeated_calls, max_tokens=max_tokens,
                           max_seconds=max_seconds, max_cost_usd=max_cost_usd),
@@ -98,6 +100,13 @@ class RunResult:
     @property
     def secret_leaks(self) -> List[Finding]:
         return [f for f in self.findings if f.rule == "secret_leak"]
+
+    @property
+    def unauthorized_side_effects(self) -> List[Finding]:
+        """Allowed tool calls whose effects (Policy.tool_effects) exceeded what the scenario's
+        own task authorized (Scenario.authorized_effects) -- see
+        agentsec/attacks/action_without_authorization.py."""
+        return [f for f in self.findings if f.rule == "unauthorized_side_effect"]
 
     @property
     def forbidden_tool_calls(self) -> List[ToolCallRecord]:

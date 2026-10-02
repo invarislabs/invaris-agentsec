@@ -28,6 +28,7 @@ ASI: Dict[str, str] = {
 _BY_RULE: Dict[str, List[str]] = {
     "forbidden_action": ["ASI02"],
     "unauthorized_tool": ["ASI02", "ASI03"],
+    "unauthorized_side_effect": ["ASI03", "ASI02"],
     "secret_leak": ["ASI03"],
     "injection_followed": ["ASI01"],
     "memory_poisoned": ["ASI06", "ASI01"],
@@ -70,12 +71,12 @@ _BY_RULE: Dict[str, List[str]] = {
 
 # Tool misuse caused by adversarial content is also a goal hijack.
 _HIJACK_CATEGORIES = {"prompt_injection", "indirect_prompt_injection",
-                      "tool_output_poisoning", "memory_poisoning"}
+                      "tool_output_poisoning", "memory_poisoning", "action_without_authorization"}
 
 
 def map_finding(rule: str, category: str) -> List[Dict[str, str]]:
     ids = list(_BY_RULE.get(rule, []))
-    if rule in ("forbidden_action", "unauthorized_tool") and category in _HIJACK_CATEGORIES:
+    if rule in ("forbidden_action", "unauthorized_tool", "unauthorized_side_effect") and category in _HIJACK_CATEGORIES:
         ids.append("ASI01")
     if rule == "secret_leak" and category == "memory_poisoning":
         ids = ["ASI06", "ASI03"]

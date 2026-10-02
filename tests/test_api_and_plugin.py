@@ -14,7 +14,8 @@ SECRET = "sk-live-INVARIS-DEMO-7f3a9c1e5b2d"
 def target(url, **kw):
     return AgentTarget(url, allowed_tools={"search_documents", "create_draft"},
                        forbidden_tools={"send_email", "execute_payment", "reveal_credentials"},
-                       secrets=[SECRET], **kw)
+                       secrets=[SECRET],
+                       tool_effects={"search_documents": ["read"], "create_draft": ["write"]}, **kw)
 
 
 def test_readme_example_flow_against_safe_agent(safe_url):
@@ -42,6 +43,14 @@ def test_secret_leaks_and_unauthorized_calls(vulnerable_url):
     assert {c.name for c in unauth} == {"delete_records", "shell"}
 
 
+def test_unauthorized_side_effects_against_vulnerable_and_safe_agents(vulnerable_url, safe_url):
+    vulnerable = SecuritySuite(target(vulnerable_url)).run("action_without_authorization")
+    assert len(vulnerable.unauthorized_side_effects) == 2
+    assert {f.key for f in vulnerable.unauthorized_side_effects} == {"create_draft"}
+    safe = SecuritySuite(target(safe_url)).run("action_without_authorization")
+    assert safe.unauthorized_side_effects == [] and safe.passed
+
+
 def test_total_tool_calls_is_per_scenario_maximum(vulnerable_url):
     result = SecuritySuite(target(vulnerable_url, max_tool_calls=4)).run("loop_and_budget_limits")
     assert result.total_tool_calls == 5  # 4 allowed + the over-budget attempt
@@ -57,7 +66,7 @@ def test_run_by_scenario_id_and_seed(safe_url):
 
 
 def test_run_all_when_no_names(safe_url):
-    assert len(SecuritySuite(target(safe_url)).run().results) == 34
+    assert len(SecuritySuite(target(safe_url)).run().results) == 36
     assert CATEGORIES[0] == "prompt_injection" and "memory_poisoning" in CATEGORIES
 
 

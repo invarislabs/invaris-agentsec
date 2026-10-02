@@ -176,7 +176,13 @@ python examples/real_world_agents/browser_assistant/server.py            # vulne
 agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
 ```
 
-Each one's `agentsec.yaml` wires in the matching attack pack alongside the eight built-in categories, so `agentsec test` runs the full generic + domain-specific
-suite in one pass. Against all three, vulnerable mode currently fails every scenario (121 scenarios, 121 with findings) and `--safe` passes every scenario
-(121 of 121), the same clean contrast as the two agents above. See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md) for what
-each one models and why.
+Each one's `agentsec.yaml` wires in the matching attack pack and a `tool_effects` section (see
+[Policy reference](policy-reference.md#tool_effects)) alongside the nine built-in categories, so
+`agentsec test` runs the full generic + domain-specific suite, including `action_without_authorization`,
+in one pass. Against all three, vulnerable mode currently fails every scenario (127 scenarios, 127
+with findings) and `--safe` passes every scenario (127 of 127), the same clean contrast as the two
+agents above. See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md)
+for what each one models and why, and
+[`demo_action_without_authorization.py`](../examples/real_world_agents/demo_action_without_authorization.py)
+for a concrete, standalone before/after walkthrough of `action_without_authorization` against
+`coding_assistant`.

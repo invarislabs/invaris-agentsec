@@ -5,6 +5,27 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+- New: `action_without_authorization`, a 9th built-in attack category addressing a gap no
+  existing category could express: a tool call that is globally allowed for the agent, but that
+  the *current task* never authorized. A coding assistant asked only to review something has no
+  more business calling `write_file` than one asked to fix something is wrong to call it --
+  `allowed_tools`/`forbidden_actions` can't tell those apart because the distinction isn't about
+  the tool, it's about what the request actually asked for. Policies opt in by declaring
+  `tool_effects` (tool name -> effect tags: `read`, `write`, `delete`, `execute`, `network`,
+  `financial`, `credential_access`, ...); scenarios opt in by declaring `authorized_effects`. A
+  new evaluator, `ActionAuthorizationEvaluator` (rule `unauthorized_side_effect`, mapped to
+  ASI03/ASI02/ASI01), flags a call whose effects exceed what the scenario's task authorized, and
+  only for tools with declared effects -- it never guesses. Without `tool_effects`, this category
+  produces zero scenarios and every other policy is unaffected. See
+  [Policy reference](docs/policy-reference.md#tool_effects),
+  [Attack catalog](docs/attack-catalog.md#9-action_without_authorization), and
+  [`examples/real_world_agents/demo_action_without_authorization.py`](examples/real_world_agents/demo_action_without_authorization.py)
+  for a concrete before/after walkthrough (the identical `write_file` call is flagged when the
+  task only authorized reading, and silent when the task authorized writing). All three
+  `examples/real_world_agents/` policies now declare `tool_effects` and include this category;
+  verified live (43/43, 41/41, 43/43 vulnerable-fails / safe-passes).
+- New: `AgentTarget(tool_effects=...)` and `RunResult.unauthorized_side_effects` in the Python API,
+  for parity with the YAML policy surface.
 - New: three more reference agents in `examples/real_world_agents/` (`coding_assistant`,
   `support_assistant`, `browser_assistant`), modeled on real daily-use AI agent products rather
   than a generic RAG bot, each with a vulnerable and a `--safe` mode and paired one-to-one with an

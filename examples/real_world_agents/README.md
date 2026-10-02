@@ -26,9 +26,23 @@ agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
 ```
 
 Same pattern for `support_assistant` (port 8020) and `browser_assistant` (port 8030). Each
-`agentsec.yaml` declares that agent's tools, its synthetic secret, and both the built-in categories
+`agentsec.yaml` declares that agent's tools, its synthetic secret, its `tool_effects` (see
+[Policy reference](../../docs/policy-reference.md#tool_effects)), and both the built-in categories
 and its matching attack pack's categories, so a single `agentsec test` run exercises the full
-generic + domain-specific suite against it.
+generic + domain-specific suite against it, including `action_without_authorization` -- each
+agent's vulnerable mode performs its one allowed non-read action (`install_package`, `issue_refund`,
+`fill_form`) when a review-only/lookup-only/read-only request is paired with untrusted content
+asking it to go further, and each `--safe` mode does not. See
+[`demo_action_without_authorization.py`](demo_action_without_authorization.py) for the exact
+before/after walkthrough against `coding_assistant`.
+
+Current vulnerable/safe split, run live against each agent:
+
+| Agent | Vulnerable mode | `--safe` mode |
+|---|---|---|
+| `coding_assistant` | 43/43 scenarios produced a finding | 43/43 scenarios passed |
+| `support_assistant` | 41/41 scenarios produced a finding | 41/41 scenarios passed |
+| `browser_assistant` | 43/43 scenarios produced a finding | 43/43 scenarios passed |
 
 DO NOT deploy any of these. The vulnerable mode of each obeys instructions it finds in content it
 reads, on purpose, and the "secrets" embedded in each system prompt are synthetic demo values, not
