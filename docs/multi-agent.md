@@ -93,6 +93,9 @@ own tools only, so a delegated researcher cannot chain a hand-off to the executo
 - Attribution is only as good as what the system reports; AgentSec does not verify it.
 - Sub-agents inside one CLI session that share one MCP client (for example Claude Code's own sub-agents) cannot be
   told apart through the MCP host. Not tested.
+- Only OpenAI Agents SDK and CrewAI teams have been run, both with a scripted model. Google ADK's multi-agent modes
+  (sub-agents, agent transfer) and AutoGen group chats have not been tested; both frameworks were run only as single
+  agents.
 - Strict attenuation also flags a *legitimate* user request that the system routes through an agent without the
   authority (a write requested by the user but delegated by a read-only researcher). That is reported on purpose:
   route privileged work through agents that hold the authority.

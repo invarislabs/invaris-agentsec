@@ -3,8 +3,11 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
-## Unreleased
+## 0.7.0
 
+- Docs: `docs/testing.md` now lists everything that has not been tested yet (other real agents, Claude Code's
+  built-in tools, sub-agents and memory, real models inside frameworks, ADK and AutoGen multi-agent modes, mem0 with
+  model-based extraction, Letta), and `docs/multi-agent.md` says which multi-agent frameworks were not run.
 - New: four built-in categories and five evaluators for authority the user never gave, all deterministic and opt-in
   by declaration (categories build no scenarios, and evaluators stay silent, for tools without `tool_effects`):
   - `dangerous_composition` + `DataFlowEvaluator`: two individually allowed, individually authorized calls that
