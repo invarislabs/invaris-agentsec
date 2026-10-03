@@ -28,9 +28,15 @@ class ScenarioResult:
 
     @property
     def status(self) -> str:
+        # Findings first: an agent that took a forbidden action and *then* crashed still took it.
+        if self.findings:
+            return "findings"
         if self.trace.outcome == "error":
             return "error"
-        return "findings" if self.findings else "passed"
+        if getattr(self.scenario, "requires_actor", False) and not any(
+                (e.meta or {}).get("actor") for e in self.trace.events):
+            return "not_observable"
+        return "passed"
 
 
 @dataclass
@@ -61,6 +67,17 @@ def declared_tools(policy: Policy) -> List[Dict[str, Any]]:
                            "additionalProperties": True},
         },
     } for n in names]
+
+
+def _who(actor: Any, delegated_by: Any) -> Dict[str, Any]:
+    """Trace meta for multi-agent attribution: `actor` (the agent that acted) and `delegated_by`
+    (the agent that handed it the work). Empty for single-agent systems."""
+    out: Dict[str, Any] = {}
+    if isinstance(actor, str) and actor:
+        out["actor"] = actor
+    if isinstance(delegated_by, str) and delegated_by:
+        out["delegated_by"] = delegated_by
+    return out
 
 
 def _is_scenario_tool(policy: Policy, name: str) -> bool:
@@ -128,6 +145,17 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
             try:
                 reply = adapter.chat(messages, tools, session=session)
             except AdapterError as exc:
+                if host is not None:
+                    # Calls the agent made through the host before it failed already happened:
+                    # record them, so a crash cannot hide an action taken on the way to it.
+                    for ev in host.drain():
+                        who = _who(ev.get("actor"), ev.get("delegated_by"))
+                        usage.tool_calls += 1
+                        add("tool_call", phase, tool_name=ev["name"], arguments=ev.get("arguments") or {},
+                            meta=dict(who, executed_by_agent=True))
+                        if ev.get("result") is not None:
+                            add("tool_result", phase, tool_name=ev["name"], content=str(ev["result"]),
+                                meta=dict(who, executed_by_agent=True))
                 trace.outcome, trace.error = "error", str(exc)
                 add("error", phase, content=str(exc))
                 halted = True
@@ -147,15 +175,19 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
 
             if host is not None:
                 reply.executed = list(reply.executed) + host.drain()
-            add("assistant_message", phase, content=reply.content or "")
-            # Calls the agent executed itself and reported: record them as observed.
+            # Calls the agent executed itself and reported: record them as observed. They happened
+            # while the agent produced this reply, so they come before its text in the trace --
+            # evaluators that compare what the agent said with what it had done rely on that order.
             for ev in reply.executed:
                 usage.tool_calls += 1
+                who = _who(ev.get("actor"), ev.get("delegated_by"))
                 add("tool_call", phase, tool_name=ev["name"], arguments=ev.get("arguments") or {},
-                    meta={"executed_by_agent": True})
+                    meta=dict(who, executed_by_agent=True))
                 if ev.get("result") is not None:
                     add("tool_result", phase, tool_name=ev["name"], content=str(ev["result"]),
-                        meta={"executed_by_agent": True})
+                        meta=dict(who, executed_by_agent=True))
+            add("assistant_message", phase, content=reply.content or "",
+                meta=_who(getattr(reply, "actor", None), None))
 
             if host is not None and reply.executed:
                 # The agent ran its tool loop itself, so the budget can only be checked afterwards.
@@ -180,8 +212,9 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
                 usage.tool_calls += 1
                 calls += 1
                 over = calls > lim.max_tool_calls
+                who = _who(getattr(tc, "actor", None), getattr(tc, "delegated_by", None))
                 add("tool_call", phase, tool_name=tc.name, tool_call_id=tc.id, arguments=tc.arguments,
-                    meta={"over_budget": True} if over else {})
+                    meta=dict(who, over_budget=True) if over else who)
                 if over:
                     stop("max_tool_calls", "agent requested tool call #%d (budget %d)"
                          % (calls, lim.max_tool_calls), phase)
@@ -194,7 +227,7 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
                     result = BENIGN_DOC
                 else:
                     result = SANDBOX_OK
-                add("tool_result", phase, tool_name=tc.name, tool_call_id=tc.id, content=result)
+                add("tool_result", phase, tool_name=tc.name, tool_call_id=tc.id, content=result, meta=who)
                 messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
             if over_budget:
                 halted = True
@@ -247,9 +280,16 @@ def run_suite(policy: Policy, adapter: AgentAdapter, seed: int = 0,
         if progress:
             progress(sc)
         trace = run_scenario(sc, policy, adapter, run_id=run_id, host=host)
-        findings = (evaluate_trace(sc, trace, policy, evaluator, extra_evaluators)
-                   if trace.outcome != "error" else [])
+        # Errored runs are evaluated too, but only on what the agent actually did (tool calls,
+        # its own messages): the judge, which reviews whole transcripts, skips them.
+        findings = evaluate_trace(sc, trace, policy, evaluator if trace.outcome != "error" else None,
+                                  extra_evaluators)
         results.append(ScenarioResult(sc, trace, findings))
+    blind = [r.scenario.id for r in results if r.status == "not_observable"]
+    if blind:
+        warnings.append("%d scenario(s) need multi-agent attribution (which agent acted) and the agent reported "
+                        "none, so they were NOT OBSERVABLE rather than passed: %s -- see docs/multi-agent.md"
+                        % (len(blind), ", ".join(blind)))
     if evaluator is not None and evaluator.errors:
         warnings.append("judge: %d of %d judge calls failed or returned an unusable verdict"
                         % (evaluator.errors, evaluator.calls))

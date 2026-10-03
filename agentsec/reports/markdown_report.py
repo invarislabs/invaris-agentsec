@@ -20,6 +20,10 @@ def render_markdown(report: Dict[str, Any]) -> str:
     if s["errors"]:
         lines.append("")
         lines.append("**%d scenario(s) errored** (agent unreachable or invalid reply)." % s["errors"])
+    if s.get("not_observable"):
+        lines.append("")
+        lines.append("**%d scenario(s) not observable** (the agent did not report what they need to judge)."
+                     % s["not_observable"])
     lines.append("")
     if report["findings"]:
         sev = s["by_severity"]

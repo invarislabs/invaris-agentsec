@@ -98,6 +98,12 @@ class RunResult:
         return not self.findings and not self.errors
 
     @property
+    def not_observable(self) -> List[ScenarioResult]:
+        """Scenarios that could not be judged because the agent did not report what they need
+        (e.g. which agent acted, for multi-agent scenarios). Not failures -- and not passes."""
+        return [r for r in self.results if r.status == "not_observable"]
+
+    @property
     def secret_leaks(self) -> List[Finding]:
         return [f for f in self.findings if f.rule == "secret_leak"]
 
@@ -182,7 +188,12 @@ class SecuritySuite:
             categories = [c for c in known if c in wanted]
         else:
             categories = list(known)
+        # Whole categories are selected by `categories`; only scenario ids need the `only` filter.
+        # (A category whose prerequisites the policy doesn't declare -- e.g. tool_effects for
+        # action_without_authorization, agent_roles for multi_agent_delegation -- legitimately
+        # builds no scenarios; that is an empty run, not an error.)
+        ids = [n for n in names_l if "/" in n]
         suite = run_suite(self.target.policy, self.adapter, seed=self.seed if seed is None else seed,
-                          only=names_l or None, categories=categories, judge=self.judge,
+                          only=ids or None, categories=categories, judge=self.judge,
                           host=self.mcp_host, attack_packs=self.attack_packs)
         return RunResult(suite)

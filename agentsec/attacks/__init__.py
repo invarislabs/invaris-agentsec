@@ -4,8 +4,9 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ..policies import PolicyError
-from . import (action_without_authorization, indirect_prompt_injection, loop_and_budget_limits,
-               memory_poisoning, prompt_injection, secret_extraction, tool_output_poisoning,
+from . import (action_without_authorization, dangerous_composition, deceptive_action_report,
+               identity_and_session_confusion, indirect_prompt_injection, loop_and_budget_limits,
+               memory_poisoning, multi_agent_delegation, prompt_injection, secret_extraction, tool_output_poisoning,
                unauthorized_tool_use, unsafe_retrieved_documents)
 from .base import Followup, Scenario, ScenarioContext
 
@@ -20,6 +21,10 @@ CATEGORIES: Dict[str, Callable[[ScenarioContext], List[Scenario]]] = {
     "loop_and_budget_limits": loop_and_budget_limits.build,
     "memory_poisoning": memory_poisoning.build,
     "action_without_authorization": action_without_authorization.build,
+    "dangerous_composition": dangerous_composition.build,
+    "deceptive_action_report": deceptive_action_report.build,
+    "identity_and_session_confusion": identity_and_session_confusion.build,
+    "multi_agent_delegation": multi_agent_delegation.build,
 }
 
 # Recognised in policies but not implemented yet.

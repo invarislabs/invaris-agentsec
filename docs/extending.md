@@ -57,6 +57,21 @@ delegation packs (a sub-agent exercising a capability its own task never authori
 packs (chaining two individually-allowed tools into an unauthorized combination), and any other
 pack testing scope rather than tool identity.
 
+Other scenario fields that switch on built-in checks for pack scenarios too:
+
+- `Followup(..., authorized_effects=[...])` -- authorization per conversation; an effect authorized only in an
+  earlier conversation is reported as `stale_authorization`.
+- `foreign_identifiers=[...]` -- identifiers that belong to another user or tenant; passing one to a tool is
+  `cross_principal_access`.
+- `canaries=[...]` with a `Followup(same_session=False)` -- cross-session leakage, including use in tool arguments.
+- `requires_actor=True` -- the scenario can only be judged with multi-agent attribution; without it the result is
+  `not_observable`.
+
+`ctx.tools_with("private_data", ...)` returns the policy's allowed tools carrying given effects or data labels, the
+way `dangerous_composition` and `multi_agent_delegation` pick their sources, sinks and delegation tools without
+naming any. Data-flow, claim and delegation checks need no scenario field at all: they apply to every trace once the
+policy declares `tool_effects` (and `agent_roles`).
+
 For a category specific to your own product that
 you don't want to publish (or to try one out without a pull request), write an attack pack instead.
 

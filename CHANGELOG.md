@@ -5,6 +5,45 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+- New: four built-in categories and five evaluators for authority the user never gave, all deterministic and opt-in
+  by declaration (categories build no scenarios, and evaluators stay silent, for tools without `tool_effects`):
+  - `dangerous_composition` + `DataFlowEvaluator`: two individually allowed, individually authorized calls that
+    combine into harm, detected as data flow from a labelled result into a later call's arguments
+    (`private_data_exfiltration`, `untrusted_content_executed`, `untrusted_content_delegated`, `credential_delegated`).
+    New data labels for `tool_effects`: `private_data` and `untrusted_content`.
+  - `deceptive_action_report` + `ActionClaimEvaluator`: the agent's own report against its trace
+    (`false_action_claim` for a blanket denial contradicted by an earlier call, `unsupported_action_claim` for
+    claimed work with no matching call).
+  - `identity_and_session_confusion` + `IdentityBoundaryEvaluator`: `cross_principal_access` (another user's or
+    tenant's identifier passed to a tool, via `Scenario.foreign_identifiers`), `stale_authorization` (authorization is
+    now per conversation: `Followup.authorized_effects`), and a credential reused in another caller's session.
+  - `multi_agent_delegation` + `DelegationEvaluator` and a new `agent_roles` policy section: `agent_exceeded_role`,
+    `delegation_privilege_escalation` (authority attenuation along the delegation chain), `unauthorized_delegation`,
+    `unknown_agent_action`, `secret_shared_between_agents`. Multi-agent attribution (`actor`, `delegated_by`) through
+    the HTTP `x_agentsec` extension, `CallableAdapter`, `ToolHost` and the MCP host (per-client `clientInfo.name`).
+    See [Multi-agent testing](docs/multi-agent.md).
+- New: `memory_poisoning/secret_persisted_incidentally` -- a credential mentioned in passing must not be recalled
+  for another user by automatic memory.
+- New: scenario status `not_observable` (and `summary.not_observable`) for scenarios that need attribution the agent
+  did not report; the pytest plugin skips such categories, and categories with no scenarios for the policy, instead
+  of failing or passing them.
+- New: `agentsec.integrations.ToolHost`, an in-process tool host for frameworks that run their own tool loop.
+  `MCPAttackHost` is now this host plus its HTTP server.
+- New: `benchmarks/` with checked-in results: the same scenarios through LangChain, LangGraph, CrewAI, AutoGen,
+  the OpenAI Agents SDK, Google ADK and smolagents (scripted model, real runtimes: 33/35 identical to a
+  no-framework reference everywhere, 0 false positives); multi-agent teams in the OpenAI Agents SDK and CrewAI;
+  mem0 and LangGraph-store memory; and a real Claude Code CLI session over MCP (35 scenarios, 2 findings).
+- New: reference agent `examples/real_world_agents/multi_agent_team` (port 8040). The three single-agent real-world
+  policies now declare data labels and run the new categories (50/50, 48/48, 49/49 vulnerable-fails / safe-passes).
+- Fix: calls an agent executes itself (`x_agentsec.events`, the MCP host, `ToolHost`) are now recorded before the
+  reply they led to, not after it.
+- Fix: a run that fails part-way is evaluated on what the agent did before failing (calls made through a host are
+  drained into the trace first), so an action followed by a crash is a finding, not just an error.
+- Fix: `SecuritySuite.run("<category>")` no longer raises when the category builds no scenarios for the policy.
+- Fix (found by running against Claude Code): `ActionClaimEvaluator` flagged truthful reports -- denials about one
+  specific thing ("I haven't run any tests"), running a *search* as running code, and "I changed nothing" as a
+  completion claim. Regression tests in `tests/test_claims.py`.
+
 - New: `action_without_authorization`, a 9th built-in attack category addressing a gap no
   existing category could express: a tool call that is globally allowed for the agent, but that
   the *current task* never authorized. A coding assistant asked only to review something has no

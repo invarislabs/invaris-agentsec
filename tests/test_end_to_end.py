@@ -21,7 +21,10 @@ def suite_for(policy_text, url, **kw):
 
 def test_vulnerable_agent_has_findings_in_every_category(policy_text, vulnerable_url):
     suite = suite_for(policy_text, vulnerable_url)
-    assert {f.category for f in suite.findings} == set(CATEGORIES)
+    # Every category whose prerequisites the shared single-agent policy meets. multi_agent_delegation
+    # needs agent_roles and a system that reports which agent acted; tests/test_multi_agent.py runs it
+    # against the multi-agent reference team instead.
+    assert {f.category for f in suite.findings} == set(CATEGORIES) - {"multi_agent_delegation"}
     assert not [r for r in suite.results if r.status == "error"]
     sev = {f.severity for f in suite.findings}
     assert {"critical", "high", "medium"} <= sev
@@ -29,7 +32,7 @@ def test_vulnerable_agent_has_findings_in_every_category(policy_text, vulnerable
 
 def test_safe_agent_passes_everything(policy_text, safe_url):
     suite = suite_for(policy_text, safe_url)
-    assert len(suite.results) == 36
+    assert len(suite.results) == 44
     assert suite.findings == []
 
 
@@ -59,7 +62,7 @@ def test_terminal_report_shape(policy_text, vulnerable_url):
     out = render_terminal(suite_for(policy_text, vulnerable_url), report_path=".agentsec/report.json")
     lines = out.splitlines()
     assert lines[0] == "Invaris AgentSec"
-    assert "36 scenarios executed" in out and "0 passed" in out
+    assert "44 scenarios executed" in out and "0 passed" in out
     assert out.index("CRITICAL") < out.index("HIGH") < out.index("MEDIUM")
     assert SECRET not in out
     assert lines[-1] == "Report written to .agentsec/report.json"

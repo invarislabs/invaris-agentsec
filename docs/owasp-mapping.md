@@ -11,16 +11,16 @@ A finding can map to more than one category.
 
 | ID | Name | Covered by AgentSec today |
 |---|---|---|
-| ASI01 | Agent Goal Hijack | Yes: prompt injection, indirect injection, tool-output poisoning, memory poisoning |
-| ASI02 | Tool Misuse | Yes: forbidden and out-of-allowlist calls, tool-call, token, time and cost budgets, spend limits and address-allowlist violations |
-| ASI03 | Identity & Privilege Abuse | Partly: leaked credentials and secrets, calls outside the allowlist, destinations outside a declared address allowlist, and (where `tool_effects` is declared) an allowed tool call whose effect exceeded what the current task authorized (`action_without_authorization`) |
+| ASI01 | Agent Goal Hijack | Yes: prompt injection, indirect injection, tool-output poisoning, memory poisoning, and injection-delivered findings in the authorization, composition, claims, identity and multi-agent categories |
+| ASI02 | Tool Misuse | Yes: forbidden and out-of-allowlist calls, tool-call, token, time and cost budgets, spend limits and address-allowlist violations, private data sent out through an allowed tool |
+| ASI03 | Identity & Privilege Abuse | Mostly (where `tool_effects`/`agent_roles` are declared): leaked credentials and secrets, calls outside the allowlist, destinations outside an address allowlist, effects the current task never authorized, permissions reused from an earlier task or session, actions on another user's or tenant's resources, sub-agents exceeding their role, privilege escalation through delegation. Not covered: token forwarding to third-party services and OAuth scope misuse outside the agent's own tool calls |
 | ASI04 | Agentic Supply Chain Vulnerabilities | Partly: `agentsec mcp scan` checks MCP tool, resource and prompt definitions for poisoning and changes |
-| ASI05 | Unexpected Code Execution | No |
+| ASI05 | Unexpected Code Execution | Partly: untrusted content (a web page, PR comment, README) copied into an `execute` call (`untrusted_content_executed`); code generated from scratch and then run is not judged |
 | ASI06 | Memory & Context Poisoning | Yes: the `memory_poisoning` category |
-| ASI07 | Insecure Inter-Agent Communication | No (multi-agent testing is on the roadmap) |
+| ASI07 | Insecure Inter-Agent Communication | Partly: untrusted instructions or credentials passed between agents in a delegation, unauthorized delegation, privilege escalation through delegation -- for systems that report which agent acted (see [Multi-agent testing](multi-agent.md)) |
 | ASI08 | Cascading Failures | Partly: non-terminating and repeating loops |
-| ASI09 | Human-Agent Trust Exploitation | No |
-| ASI10 | Rogue Agents | No |
+| ASI09 | Human-Agent Trust Exploitation | Partly: the agent's report of its own actions contradicting its trace (`false_action_claim`) or claiming work it never did (`unsupported_action_claim`). Persuasion and manipulation of the user in other forms are not judged |
+| ASI10 | Rogue Agents | Partly: an agent not registered in `agent_roles` taking an action (`unknown_agent_action`). Agents continuing after their task ends are not covered |
 
 ## Finding rules
 
@@ -29,6 +29,18 @@ A finding can map to more than one category.
 | `forbidden_action` | ASI02, plus ASI01 when the scenario is an injection or poisoning attack |
 | `unauthorized_tool` | ASI02, ASI03, plus ASI01 in injection and poisoning scenarios |
 | `unauthorized_side_effect` | ASI03, ASI02, plus ASI01 (this category is itself an injection-delivered goal hijack) |
+| `stale_authorization` | ASI03, plus ASI01 in injection-delivered categories |
+| `private_data_exfiltration` | ASI02, ASI03, plus ASI01 in injection-delivered categories |
+| `untrusted_content_executed` | ASI05, ASI02, plus ASI01 in injection-delivered categories |
+| `untrusted_content_delegated` | ASI07, ASI01 |
+| `credential_delegated` | ASI03, ASI07 |
+| `false_action_claim`, `unsupported_action_claim` | ASI09 |
+| `cross_principal_access` | ASI03 |
+| `agent_exceeded_role` | ASI03, ASI02 |
+| `delegation_privilege_escalation` | ASI03, ASI07 |
+| `unauthorized_delegation` | ASI07, ASI03 |
+| `unknown_agent_action` | ASI10 |
+| `secret_shared_between_agents` | ASI03, ASI07 |
 | `secret_leak` | ASI03. In memory scenarios: ASI06, ASI03 |
 | `injection_followed` | ASI01 |
 | `memory_poisoned` | ASI06, ASI01 |

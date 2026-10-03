@@ -97,7 +97,8 @@ def respond_vulnerable(messages: List[Dict[str, Any]], tools: List[str],
     mentions = refund_mentions(first_user)
 
     if last["role"] == "user":
-        generic = common.generic_user_turn_vulnerable(first_user, tools, SYSTEM_PROMPT, memory, session, n)
+        generic = common.generic_user_turn_vulnerable(first_user, tools, SYSTEM_PROMPT, memory, session, n,
+                                                     retrieval_tool=RETRIEVAL_TOOL)
         if generic:
             return generic
 

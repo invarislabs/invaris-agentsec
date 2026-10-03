@@ -80,7 +80,8 @@ judge:
 | `agent` | yes | | How to reach the agent |
 | `allowed_tools` | no | none | Tools the agent may call. If omitted, no allowlist is enforced. If set to `[]`, any tool call is a violation |
 | `forbidden_actions` | no | `[]` | Actions that must never be attempted. Also used as the names in attack payloads |
-| `tool_effects` | no | `{}` | What each allowed tool's call actually does (read, write, delete, ...), used to tell whether a *specific task* authorized it. See [`tool_effects`](#tool_effects) |
+| `tool_effects` | no | `{}` | What each allowed tool's call actually does (read, write, delete, ...) and what its result contains (`private_data`, `untrusted_content`), used to tell whether a *specific task* authorized it and where data flowed. See [`tool_effects`](#tool_effects) |
+| `agent_roles` | no | `{}` | Multi-agent systems: the authority each agent holds and whom it may delegate to. See [`agent_roles`](#agent_roles) |
 | `secrets` | no | `[]` | Values that must never appear in agent output. Use synthetic credentials only |
 | `limits` | no | see below | Operating budgets |
 | `spend_limits` | no | none | Per-transaction and running-total caps on tools that move money. Not enforced unless present |
@@ -182,8 +183,72 @@ tool is declared with an effect beyond `read`, and `ActionAuthorizationEvaluator
 tool call whose effects weren't declared. This project does not guess which of an agent's tools is
 state-changing from its name.
 
-This section only matters to scenarios that declare their own `authorized_effects` (currently just
-`action_without_authorization`); every other built-in and pack scenario ignores it.
+### Data labels: `private_data` and `untrusted_content`
+
+Two tags describe a tool's *result* rather than its action:
+
+- `private_data` -- the result holds data that must not leave the trust boundary (customer records,
+  internal documents, account details). `credential_access` counts the same way.
+- `untrusted_content` -- the result holds text an outsider can write (web pages, emails, tickets, PR
+  comments, package READMEs).
+
+They are never compared against what a task authorized. They feed the data-flow check
+(`DataFlowEvaluator`, see [`dangerous_composition`](attack-catalog.md#10-dangerous_composition-0-2-scenarios-vector-retrieved-document)), which
+flags private data reaching an `external_communication`/`network` call to a destination the user did not
+name, untrusted text reaching an `execute` call, and untrusted text or credentials handed to another agent
+through a `delegation` call. A tool can carry both an action and labels:
+
+```yaml
+tool_effects:
+  lookup_account: [read, private_data]
+  read_page: [read, untrusted_content]
+  send_customer_email: [external_communication]
+  run_tests: [execute]
+```
+
+A destination counts as the user's own when it appears in the user's message or in
+[`address_allowlist`](#address_allowlist) for that tool; an address found inside the data (a record's
+"notes" field, a web page) does not.
+
+`delegation` is an action, but an internal one -- handing work to another agent in the same system. It is
+never compared against a task's authorized effects; what the delegate then does is, and whether the
+delegating agent was allowed to hand that work on is checked against [`agent_roles`](#agent_roles).
+
+### Which checks use `tool_effects`
+
+Task-scoped authorization (`action_without_authorization`, and `stale_authorization` across conversations),
+data flow (`dangerous_composition`), claim-versus-trace comparison (`deceptive_action_report`), the severity
+of cross-account actions (`identity_and_session_confusion`) and role checks for multi-agent systems all read
+it. Every one of them stays silent for a tool with no entry.
+
+## `agent_roles`
+
+For multi-agent systems (a planner with sub-agents, a crew, a group chat). Each key is an agent name as the
+system reports it; see [Multi-agent testing](multi-agent.md).
+
+```yaml
+agent_roles:
+  planner:
+    effects: [read, write, delegation]
+    can_delegate_to: [researcher, executor]
+  researcher:
+    effects: [read]
+    tools: [search_docs]
+  executor:
+    effects: [read, write]
+    tools: [apply_change]
+```
+
+| Key | Meaning |
+|---|---|
+| `effects` | The ceiling of what this agent may do itself, in the `tool_effects` vocabulary. Delegating at all requires `delegation` |
+| `tools` | Optional. Restricts the agent to these tool names as well |
+| `can_delegate_to` | Optional. The agents it may hand work to. Every name must be a declared role |
+
+The rule applied is authority attenuation: work an agent delegates never carries more authority than that
+agent holds. If a researcher (read only) gets the executor to write, that is privilege escalation through
+delegation even though the executor may write. Without `agent_roles`, multi-agent checks stay silent and the
+`multi_agent_delegation` category builds no scenarios.
 
 ## `secrets`
 
@@ -199,11 +264,17 @@ GitHub tokens, private key headers and long bearer tokens.
 
 Valid categories: `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`, `unauthorized_tool_use`,
 `tool_output_poisoning`, `unsafe_retrieved_documents`, `loop_and_budget_limits`, `memory_poisoning`,
-`action_without_authorization`. Leaving `tests` empty runs all of them. Anything else is an error that lists the valid names.
+`action_without_authorization`, `dangerous_composition`, `deceptive_action_report`,
+`identity_and_session_confusion`, `multi_agent_delegation`. Leaving `tests` empty runs all of them. Anything
+else is an error that lists the valid names.
 
-`action_without_authorization` produces no scenarios unless [`tool_effects`](#tool_effects) declares
-at least one allowed tool with an effect beyond `read` -- it never guesses which tool is
-state-changing, so an agent policy that hasn't adopted `tool_effects` yet is unaffected by listing it.
+Several categories build scenarios only when the policy declares what they need, and never guess it from
+tool names: `action_without_authorization` and `deceptive_action_report` need an allowed tool with an
+effect beyond `read` in [`tool_effects`](#tool_effects); `dangerous_composition` needs a `private_data` (or
+`untrusted_content`) source and an outbound (or `execute`) tool; two of the three
+`identity_and_session_confusion` scenarios need a non-read tool; `multi_agent_delegation` needs
+[`agent_roles`](#agent_roles) and a `delegation` tool. Listing one of them in a policy that lacks the
+prerequisites is harmless: it adds no scenarios (the pytest plugin reports such a category as skipped).
 
 Drop `memory_poisoning` from the list if your agent has no long-term memory: it passes trivially, but it doubles the requests for those scenarios.
 

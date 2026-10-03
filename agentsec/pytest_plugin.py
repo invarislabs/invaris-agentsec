@@ -56,5 +56,11 @@ def agentsec_run(agentsec_suite):
     def run(*names: str, fail_on: str = "low") -> RunResult:
         result = agentsec_suite.run(*names)
         result.assert_clean(fail_on)
+        if not result.results:
+            pytest.skip("AgentSec: %s built no scenarios for this policy (its prerequisites, e.g. "
+                        "tool_effects or agent_roles, are not declared)" % ", ".join(names))
+        if all(r.status == "not_observable" for r in result.results):
+            pytest.skip("AgentSec: %s not observable -- the agent did not report what these scenarios need "
+                        "(e.g. which agent acted)" % ", ".join(names))
         return result
     return run

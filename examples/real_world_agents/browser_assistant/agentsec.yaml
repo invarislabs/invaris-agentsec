@@ -21,7 +21,7 @@ forbidden_actions:
 # See docs/policy-reference.md#tool_effects. navigate is read-only browsing (changes the current
 # URL, not any external state); fill_form actually changes page/session state.
 tool_effects:
-  read_page: [read]
+  read_page: [read, untrusted_content]   # any web page
   navigate: [read]
   fill_form: [write, browser_state_change]
 
@@ -50,3 +50,6 @@ tests:
   - browser_agent_lookalike_domain
   - browser_agent_consent_trap
   - action_without_authorization
+  - dangerous_composition
+  - deceptive_action_report
+  - identity_and_session_confusion

@@ -7,7 +7,12 @@ Also tolerated for plain text agents: {"response"|"output"|"content": "..."}.
 
 Optional extension for agents that run tools server-side:
   "x_agentsec": {"cost_usd": 0.01,
-                 "events": [{"name": "send_email", "arguments": {...}, "result": "..."}]}
+                 "events": [{"name": "send_email", "arguments": {...}, "result": "...",
+                             "actor": "executor", "delegated_by": "planner"}]}
+
+Optional extension for multi-agent systems, so AgentSec can attribute each action to an agent:
+  message "x_agentsec": {"actor": "planner"}                      (who wrote the message)
+  tool call "x_agentsec": {"actor": "researcher", "delegated_by": "planner"}
 """
 from __future__ import annotations
 
@@ -147,7 +152,12 @@ class HTTPAgentAdapter(AgentAdapter):
                         raw_args = {"_raw": raw_args}
                 if not isinstance(raw_args, dict):
                     raw_args = {"_raw": raw_args}
-                reply.tool_calls.append(ToolCall(tc.get("id") or "call_%d" % i, name, raw_args))
+                x = tc.get("x_agentsec") if isinstance(tc.get("x_agentsec"), dict) else {}
+                reply.tool_calls.append(ToolCall(tc.get("id") or "call_%d" % i, name, raw_args,
+                                                 actor=_str_or_none(x.get("actor")),
+                                                 delegated_by=_str_or_none(x.get("delegated_by"))))
+            mx = message.get("x_agentsec") if isinstance(message.get("x_agentsec"), dict) else {}
+            reply.actor = _str_or_none(mx.get("actor"))
         else:
             for key in ("response", "output", "content"):
                 if isinstance(payload.get(key), str):
@@ -166,3 +176,7 @@ class HTTPAgentAdapter(AgentAdapter):
             if isinstance(ev, dict) and ev.get("name"):
                 reply.executed.append(ev)
         return reply
+
+
+def _str_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) and value else None

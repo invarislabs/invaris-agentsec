@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 325 tests (330 with the optional LangGraph extra installed) should pass in a few seconds. They need no network access or API keys. The end-to-end tests start the reference agent
+All 427 tests should pass in under a minute (one, the LangGraph integration test, is skipped unless the optional LangGraph extra is installed). They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -44,16 +44,22 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_attack_packs.py` | Loading attack packs from a file or module, `CATEGORIES` validation, built-in/cross-pack name collisions, `check_pack_scenarios`, running a pack through `build_scenarios`/`run_suite`/the Python API/the CLI |
 | `tests/test_sarif_report.py` | SARIF 2.1.0 output: shape and schema version, one rule per finding rule id, severity-to-level mapping, secret masking, an empty run, and `-f sarif` through the CLI |
 | `tests/test_packaging.py` | Package version agrees with `pyproject.toml` and the changelog, required project files exist, license metadata, schemas declared as package data, release workflow is valid and tests before publishing |
-| `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess |
+| `tests/test_api_and_plugin.py` | The Python API against the reference agents, and the pytest plugin run in a subprocess (a category with no scenarios for the policy is skipped, not passed) |
+| `tests/test_action_without_authorization.py` | The task-scoped authorization category and its `scoped_action()` helper |
+| `tests/test_dataflow.py` | `DataFlowEvaluator`: exfiltration of private data, untrusted text executed or delegated, user-named and allowlisted destinations as negative controls, per-conversation tracking, the `dangerous_composition` category |
+| `tests/test_claims.py` | `ActionClaimEvaluator`: denials contradicted by the trace, completion claims with no supporting call, hedged/future/conditional statements and denials about one specific thing as negative controls (including phrasing seen from a real agent) |
+| `tests/test_identity.py` | `cross_principal_access`, `stale_authorization` (per-conversation scope), a credential reused in another user's session, the `identity_and_session_confusion` category |
+| `tests/test_multi_agent.py` | `DelegationEvaluator` rules, actor attribution through the HTTP and callable adapters, the multi-agent reference team (vulnerable caught, safe clean, legitimate delegation not flagged), and NOT OBSERVABLE for systems that report no attribution |
+| `tests/test_toolhost.py` | The in-process `ToolHost`, executed calls recorded before the reply they led to, actions taken before a crash still evaluated, MCP clients attributed by `clientInfo`, and the no-dependency baselines of the framework and memory benchmarks |
 
-The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in all 8 categories,
-and the safe agent must pass all 36 scenarios (the reference agent used by the test suite declares `tool_effects`, so `action_without_authorization` contributes its 2 scenarios too; `examples/vulnerable_rag_agent/agentsec.yaml` itself does not list that category, so running the CLI directly against it, as in "Verify by hand" below, still shows 34). Together they protect against both missed detections and false alarms.
+The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in every built-in category the test policy supports (all except `multi_agent_delegation`, which needs a multi-agent system and is checked against the reference team in `test_multi_agent.py`),
+and the safe agent must pass all 44 scenarios the test policy builds (it declares `tool_effects` with data labels, so `action_without_authorization`, `dangerous_composition`, `deceptive_action_report` and `identity_and_session_confusion` all contribute; `examples/vulnerable_rag_agent/agentsec.yaml` itself lists only the original eight categories, so running the CLI directly against it, as in "Verify by hand" below, shows 35). Together they protect against both missed detections and false alarms.
 
 ## Verify by hand
 
 1. Start the vulnerable agent and run the suite, as in [Getting started](getting-started.md#run-it-against-the-bundled-agent).
-   Expect 34 executed, 0 passed, 42 findings (10 critical, 24 high, 8 medium), exit code 1.
-2. Restart with `--safe`. Expect 34 passed, 0 findings, exit code 0.
+   Expect 35 executed, 0 passed, 43 findings (10 critical, 25 high, 8 medium), exit code 1.
+2. Restart with `--safe`. Expect 35 passed, 0 findings, exit code 0.
 3. Stop the server and run again. Expect every scenario to be reported as an error and exit code 2, not a pass.
 4. Run `agentsec test -s prompt_injection --seed 1` twice and compare the reports. Scenarios and finding ids should match.
    Change the seed and the markers change.
@@ -63,6 +69,20 @@ and the safe agent must pass all 36 scenarios (the reference agent used by the t
    Restart with `--safe` and replay again: every line should be NOT REPRODUCED and the exit code 0.
 
 Findings are deterministic against the reference agent, so these numbers are stable across runs and machines.
+
+## What has been tested against real agents and frameworks
+
+Verification levels, as used throughout `research/`: **researched** (documentation read), **simulated** (a
+scripted stand-in), **integrated** (AgentSec drove the real software), **tested** (scenarios ran end to end and the
+results were checked by hand).
+
+| Target | Level | What ran | Result |
+|---|---|---|---|
+| Claude Code CLI (2.1.287/2.1.288) over `--mcp-listen`-style MCP host | integrated, tested (real LLM) | 35 scenarios, 10 categories; built-in tools disabled | 2 true findings (`marker_override`, `ceo_authority`), 33 passed; 3 AgentSec false positives found and fixed. [Details](../benchmarks/real-agents/README.md) |
+| LangChain, LangGraph, CrewAI, AutoGen AgentChat, OpenAI Agents SDK, Google ADK, smolagents | integrated, executed (scripted model) | 35 scenarios each through the real framework runtime and `ToolHost` | 33/35 identical to the no-framework reference in every framework, 0 false positives; the 2 differences are calls to unknown tools the frameworks refuse before execution. [Matrix](../benchmarks/framework-compat/MATRIX.md) |
+| OpenAI Agents SDK and CrewAI multi-agent teams | integrated, executed (scripted model) | `multi_agent_delegation` + a legitimate-delegation control | Confused deputy, role violations and credential hand-offs detected; safe teams and legitimate delegation clean. [Matrix](../benchmarks/framework-compat/MATRIX.md#multi-agent-teams-multi_agentrunpy) |
+| mem0 (2.2.1, Qdrant local), LangGraph `InMemoryStore` | integrated, executed (scripted agent, real store) | 6 memory/identity scenarios x 4 agent configurations | Cross-user leakage and poisoned persistence separated cleanly by configuration. [Matrix](../benchmarks/memory-systems/MATRIX.md) |
+| Codex CLI, Gemini CLI, Cursor, Letta, open-source coding agents | researched only | - | Not run: no credentials or headless mode in this environment |
 
 ## Testing your own agent's results
 
@@ -105,6 +125,7 @@ When you add a scenario, evaluator or adapter behaviour:
 
 - Cover the evaluator with a hand-built trace in `tests/test_evaluators.py`, both a case that must be flagged and a near miss that must not.
 - If the reference agent should fail the new scenario, extend it in `examples/vulnerable_rag_agent/server.py` and extend its safe mode so the safe agent still passes. `test_end_to_end.py` will tell you if either side breaks.
-- Update the scenario count assertions (`36`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
-- Not yet verified: the GitHub Action and `integrations` workflows on real GitHub Actions, real LLM-backed LangChain agents, MCP scanning against real-world MCP servers, and `--mcp-listen` against real MCP-capable agents.
+- Update the scenario count assertions (`44` and `42`) in `test_end_to_end.py` and `test_api_and_plugin.py` if you add scenarios.
+- Not yet verified: real LLM-backed LangChain agents, MCP scanning against real-world MCP servers, and `--mcp-listen` against MCP-capable agents other than Claude Code (see below).
+- New evaluators need a negative control and, where possible, a run against a real agent: the scripted reference agents never produced the phrasings that exposed three false positives in `ActionClaimEvaluator`.
 - Custom adapters in tests must accept the `session` keyword: `def chat(self, messages, tools, session=None)`.

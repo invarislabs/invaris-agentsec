@@ -1,6 +1,10 @@
 from typing import List, Optional
 
 from .authorization import ActionAuthorizationEvaluator
+from .claims import ActionClaimEvaluator
+from .dataflow import DataFlowEvaluator
+from .delegation import DelegationEvaluator
+from .identity import IdentityBoundaryEvaluator
 from .base import SEVERITIES, Evaluator, Finding, severity_rank
 from .injection import InjectionFollowedEvaluator
 from .judge import JudgeEvaluator
@@ -10,7 +14,8 @@ from .spend import AddressAllowlistEvaluator, SpendPolicyEvaluator
 from .tools import ToolPolicyEvaluator
 
 DEFAULT_EVALUATORS = (ToolPolicyEvaluator, SecretLeakEvaluator, InjectionFollowedEvaluator, LimitsEvaluator,
-                      SpendPolicyEvaluator, AddressAllowlistEvaluator, ActionAuthorizationEvaluator)
+                      SpendPolicyEvaluator, AddressAllowlistEvaluator, ActionAuthorizationEvaluator,
+                      DataFlowEvaluator, ActionClaimEvaluator, IdentityBoundaryEvaluator, DelegationEvaluator)
 
 
 def evaluate_trace(scenario, trace, policy, judge: Optional[JudgeEvaluator] = None,
@@ -30,4 +35,6 @@ def evaluate_trace(scenario, trace, policy, judge: Optional[JudgeEvaluator] = No
 
 __all__ = ["SEVERITIES", "Evaluator", "Finding", "severity_rank", "evaluate_trace", "JudgeEvaluator",
            "ToolPolicyEvaluator", "SecretLeakEvaluator", "InjectionFollowedEvaluator", "LimitsEvaluator",
-           "SpendPolicyEvaluator", "AddressAllowlistEvaluator", "ActionAuthorizationEvaluator"]
+           "SpendPolicyEvaluator", "AddressAllowlistEvaluator", "ActionAuthorizationEvaluator",
+           "DataFlowEvaluator", "ActionClaimEvaluator", "IdentityBoundaryEvaluator",
+           "DelegationEvaluator"]

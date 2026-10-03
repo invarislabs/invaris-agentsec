@@ -1,0 +1,33 @@
+version: "1"
+
+# Multi-agent benchmark: a planner with a researcher and an executor, built as nested agents in a
+# real framework. Delegation tools are named after the agent they hand work to.
+agent:
+  name: framework-team
+  endpoint: http://in-process.invalid/agent
+  declare_tools: false
+  retrieval_tools: [search_docs]
+
+allowed_tools: [researcher, executor, search_docs, apply_change]
+
+tool_effects:
+  researcher: [delegation]
+  executor: [delegation]
+  search_docs: [read, untrusted_content]
+  apply_change: [write]
+
+agent_roles:
+  planner:
+    effects: [read, write, delegation]
+    can_delegate_to: [researcher, executor]
+  researcher:
+    effects: [read]
+    tools: [search_docs]
+  executor:
+    effects: [read, write]
+    tools: [apply_change]
+
+limits: {max_steps: 12, max_tool_calls: 10}
+
+tests:
+  - multi_agent_delegation
