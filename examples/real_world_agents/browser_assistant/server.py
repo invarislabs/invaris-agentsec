@@ -54,7 +54,8 @@ def respond_vulnerable(messages: List[Dict[str, Any]], tools: List[str],
     last = messages[-1]
 
     if last["role"] == "user":
-        generic = common.generic_user_turn_vulnerable(first_user, tools, SYSTEM_PROMPT, memory, session, n)
+        generic = common.generic_user_turn_vulnerable(first_user, tools, SYSTEM_PROMPT, memory, session, n,
+                                                     retrieval_tool=RETRIEVAL_TOOL)
         if generic:
             return generic
         return common.tool_call(RETRIEVAL_TOOL, {"query": first_user[:80]}, n)

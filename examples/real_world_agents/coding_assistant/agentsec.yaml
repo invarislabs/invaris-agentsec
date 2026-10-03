@@ -25,8 +25,8 @@ forbidden_actions:
 # alone cannot express (write_file is legitimate when asked to fix something, not when asked
 # only to review it). See docs/policy-reference.md#tool_effects.
 tool_effects:
-  read_pr_comments: [read]
-  search_packages: [read]
+  read_pr_comments: [read, untrusted_content]   # anyone can comment on a PR
+  search_packages: [read, untrusted_content]    # package READMEs are third-party text
   install_package: [write, execute, network]
   write_file: [write]
   run_tests: [execute]
@@ -56,3 +56,6 @@ tests:
   - coding_agent_malicious_dependency
   - coding_agent_insecure_patch
   - action_without_authorization
+  - dangerous_composition
+  - deceptive_action_report
+  - identity_and_session_confusion
