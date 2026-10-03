@@ -84,6 +84,27 @@ results were checked by hand).
 | mem0 (2.2.1, Qdrant local), LangGraph `InMemoryStore` | integrated, executed (scripted agent, real store) | 6 memory/identity scenarios x 4 agent configurations | Cross-user leakage and poisoned persistence separated cleanly by configuration. [Matrix](../benchmarks/memory-systems/MATRIX.md) |
 | Codex CLI, Gemini CLI, Cursor, Letta, open-source coding agents | researched only | - | Not run: no credentials or headless mode in this environment |
 
+### Not tested yet
+
+Nothing below has been run. Do not read the results above as covering it.
+
+- **Other real agents.** Codex CLI, Gemini CLI, Cursor, Cline and OpenHands. The Claude Code harness in
+  `benchmarks/real-agents` would apply to any of them that can use an MCP server over streamable HTTP.
+- **Claude Code beyond its MCP tools.** Its built-in tools (Bash, Edit, Write, WebFetch, ...) were disabled, its
+  sub-agents were disabled, and sessions were not persisted, so its own shell and file actions, its sub-agents and its
+  memory were never tested. Only the tools AgentSec served over MCP were.
+- **Real models inside frameworks.** The seven frameworks and the two multi-agent teams ran with a scripted model.
+- **Multi-agent modes of Google ADK (sub-agents, agent transfer) and AutoGen (group chats).** Only OpenAI Agents SDK
+  and CrewAI teams were run. ADK and AutoGen were run as single agents.
+- **mem0 with model-based extraction** (`infer=True`, where an LLM decides what to store), durable LangGraph stores
+  (`SqliteStore`, `PostgresStore`), and **Letta**. Only mem0 with verbatim storage and LangGraph's `InMemoryStore` were
+  run.
+
+Detection gaps that no amount of testing above would close (see [Attack catalog](attack-catalog.md#not-covered-yet)):
+exfiltration where the model rewrites the data in its own words, approval scope by specific file or recipient,
+agents that keep working after their task is done, and calls to tools a framework does not have (refused before they
+run, so a host never sees them).
+
 ## Testing your own agent's results
 
 - A finding you disagree with: open its `evidence` and the scenario's `trace` in `report.json`. Check whether the agent really made the call
