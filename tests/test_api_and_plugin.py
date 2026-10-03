@@ -66,7 +66,9 @@ def test_run_by_scenario_id_and_seed(safe_url):
 
 
 def test_run_all_when_no_names(safe_url):
-    assert len(SecuritySuite(target(safe_url)).run().results) == 36
+    # 42, not the YAML fixture's 44: this target declares no private_data/untrusted_content source or
+    # outbound/execute sink, so dangerous_composition builds nothing (and multi_agent_delegation needs agent_roles)
+    assert len(SecuritySuite(target(safe_url)).run().results) == 42
     assert CATEGORIES[0] == "prompt_injection" and "memory_poisoning" in CATEGORIES
 
 
@@ -119,7 +121,8 @@ def test_plugin_fixtures_pass_and_fail(pytester, monkeypatch, safe_url, vulnerab
             assert agentsec_target.policy is agentsec_policy
     """)
     ok = _run_inner(pytester, monkeypatch, ("--agentsec-policy", "safe.yaml"))
-    ok.assert_outcomes(passed=len(CATEGORIES) + 1)
+    # multi_agent_delegation needs agent_roles, which this single-agent policy doesn't declare: skipped, not passed
+    ok.assert_outcomes(passed=len(CATEGORIES), skipped=1)
 
     bad = _run_inner(pytester, monkeypatch, ("--agentsec-policy", "vuln.yaml", "-k", "prompt_injection"))
     bad.assert_outcomes(failed=2)  # prompt_injection and indirect_prompt_injection

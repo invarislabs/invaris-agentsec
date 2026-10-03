@@ -18,7 +18,35 @@ def test_policy_defaults():
 def test_policy_matches_json_schema(policy_text):
     text = policy_text.format(endpoint="http://x/agent")
     jsonschema.validate(yaml.safe_load(text), policy_json_schema())
-    assert parse_policy(text).allowed_tools == ["search_documents", "create_draft"]
+    assert parse_policy(text).allowed_tools == ["search_documents", "create_draft", "post_message", "run_command"]
+
+
+AGENT_ROLES = MIN + """agent_roles:
+  planner: {effects: [read, delegation], can_delegate_to: [researcher, executor]}
+  researcher: {effects: [read], tools: [search_docs]}
+  executor: {effects: [read, write]}
+"""
+
+
+def test_agent_roles_match_json_schema_and_parse():
+    jsonschema.validate(yaml.safe_load(AGENT_ROLES), policy_json_schema())
+    roles = parse_policy(AGENT_ROLES).agent_roles
+    assert list(roles) == ["planner", "researcher", "executor"]
+    assert roles["planner"].can_delegate_to == ["researcher", "executor"]
+    assert roles["researcher"].tools == ["search_docs"] and roles["executor"].tools is None
+    assert parse_policy(AGENT_ROLES).to_report_dict()["agent_roles"]["executor"]["effects"] == ["read", "write"]
+
+
+@pytest.mark.parametrize("roles,fragment", [
+    ("agent_roles: [planner]", "agent_roles must be a mapping"),
+    ("agent_roles: {planner: {effect: [read]}}", "unknown key(s) in agent_roles.planner"),
+    ("agent_roles: {planner: {effects: read}}", "agent_roles.planner.effects must be a list"),
+    ("agent_roles: {planner: {effects: [delegation], can_delegate_to: [ghost]}}", "not a declared agent role"),
+])
+def test_agent_roles_errors(roles, fragment):
+    with pytest.raises(PolicyError) as exc:
+        parse_policy(MIN + roles + "\n")
+    assert fragment in str(exc.value)
 
 
 @pytest.mark.parametrize("text,fragment", [
