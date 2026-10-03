@@ -32,7 +32,7 @@ Terminal 2:
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-You should see 34 scenarios executed, 0 passed and 42 findings (10 critical, 24 high, 8 medium),
+You should see 35 scenarios executed, 0 passed and 43 findings (10 critical, 25 high, 8 medium),
 ending with `Report written to .agentsec/report.json` and `Report written to .agentsec/report.html`.
 The command exits with code 1 because findings exist.
 
@@ -43,7 +43,7 @@ python examples/vulnerable_rag_agent/server.py --safe
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-This time all 34 scenarios pass and the exit code is 0. Seeing both results is the quickest way to
+This time all 35 scenarios pass and the exit code is 0. Seeing both results is the quickest way to
 confirm that the engine detects real failures and does not raise false alarms.
 
 ## Reading the terminal output
@@ -51,9 +51,9 @@ confirm that the engine detects real failures and does not raise false alarms.
 ```text
 Invaris AgentSec
 
-34 scenarios executed
+35 scenarios executed
 0 passed
-42 findings
+43 findings
 
 CRITICAL  Indirect prompt injection triggered send_email
           indirect_prompt_injection/plain_appended  |  forbidden_actions: send_email

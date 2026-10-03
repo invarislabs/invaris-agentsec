@@ -70,6 +70,8 @@ result = SecuritySuite(target, adapter=MyAgentAdapter()).run("prompt_injection")
 |---|---|
 | `findings` | All findings. Each has `severity`, `title`, `rule`, `scenario_id`, `evidence` and more |
 | `secret_leaks` | Findings with the `secret_leak` rule |
+| `unauthorized_side_effects` | Findings with the `unauthorized_side_effect` rule |
+| `not_observable` | Scenario results that could not be judged because the agent did not report what they need (e.g. which agent acted); neither failures nor passes |
 | `forbidden_tool_calls` | Every call to a forbidden action, as `ToolCallRecord(scenario_id, name, arguments)` |
 | `unauthorized_tool_calls` | Calls to tools outside the allowlist (empty if no allowlist) |
 | `total_tool_calls` | The most tool calls any **single scenario** made. Compare it with your `max_tool_calls` |
@@ -116,7 +118,7 @@ pytest --agentsec-policy agentsec.yaml --agentsec-seed 0
 | `agentsec_policy` | session | The loaded `Policy`. A bad or missing file fails the test with the loader's message |
 | `agentsec_target` | session | An `AgentTarget` built from the policy |
 | `agentsec_suite` | session | A `SecuritySuite` using the seed option |
-| `agentsec_run` | function | `run(*names, fail_on="low")`: runs scenarios, calls `assert_clean`, and returns the `RunResult` |
+| `agentsec_run` | function | `run(*names, fail_on="low")`: runs scenarios, calls `assert_clean`, and returns the `RunResult`. Skips the test (rather than passing it) when the category builds no scenarios for the policy or every scenario was not observable |
 
 The `agentsec` marker is registered for your own use, for example to select these tests with `pytest -m agentsec`.
 

@@ -68,9 +68,41 @@ Add an `x_agentsec` object to the reply:
 }
 ```
 
-Each event is recorded as a `tool_call` (flagged `executed_by_agent`) and, if `result` is present, a `tool_result`.
-They go through the same evaluators as normal tool calls. For these agents set `agent.declare_tools: false`.
-Because the calls are real on your side, run them only against sandboxed or mocked backends.
+Each event is recorded as a `tool_call` (flagged `executed_by_agent`) and, if `result` is present, a `tool_result`,
+placed before the reply's text in the trace. They go through the same evaluators as normal tool calls. For these
+agents set `agent.declare_tools: false`. Because the calls are real on your side, run them only against sandboxed or
+mocked backends.
+
+Agents built on a framework that runs its own tool loop can skip the HTTP endpoint: give the framework tools that
+call AgentSec's in-process `ToolHost` and wrap the agent in a `CallableAdapter` (see [Frameworks](frameworks.md#any-other-framework)).
+
+### Multi-agent systems
+
+A system with several agents should say which one acted, so delegation can be checked (see
+[Multi-agent testing](multi-agent.md)):
+
+```json
+{
+  "choices": [{"message": {
+    "content": null,
+    "x_agentsec": {"actor": "planner"},
+    "tool_calls": [{"id": "researcher__3", "type": "function",
+                    "function": {"name": "search_docs", "arguments": "{\"query\": \"incident\"}"},
+                    "x_agentsec": {"actor": "researcher", "delegated_by": "planner"}}]
+  }}]
+}
+```
+
+Events in `x_agentsec.events` take the same `actor` and `delegated_by` keys. Without them, multi-agent scenarios are
+reported as not observable.
+
+### Infrastructure failures must be errors
+
+If your agent (or the CLI you wrap) answers an infrastructure problem -- a rate limit, an exhausted quota, a
+timeout -- with an ordinary text reply, AgentSec scores that reply like any other and the scenario *passes*.
+Return an HTTP error, or raise `AdapterError` in a `CallableAdapter`, instead. This happened for real: a Claude Code
+session that hit its usage limit kept exiting successfully with the limit notice as its answer
+(see `benchmarks/real-agents/README.md`).
 
 ## What your agent should do to be tested well
 
@@ -176,12 +208,15 @@ python examples/real_world_agents/browser_assistant/server.py            # vulne
 agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
 ```
 
-Each one's `agentsec.yaml` wires in the matching attack pack and a `tool_effects` section (see
-[Policy reference](policy-reference.md#tool_effects)) alongside the nine built-in categories, so
-`agentsec test` runs the full generic + domain-specific suite, including `action_without_authorization`,
-in one pass. Against all three, vulnerable mode currently fails every scenario (127 scenarios, 127
-with findings) and `--safe` passes every scenario (127 of 127), the same clean contrast as the two
-agents above. See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md)
+Each one's `agentsec.yaml` wires in the matching attack pack and a `tool_effects` section with data labels (see
+[Policy reference](policy-reference.md#tool_effects)) alongside twelve built-in categories, so
+`agentsec test` runs the full generic + domain-specific suite, including the authorization, composition, claims and
+identity categories, in one pass. Against all three, vulnerable mode currently fails every scenario (147 scenarios,
+147 with findings) and `--safe` passes every scenario (147 of 147), the same clean contrast as the two agents above.
+
+A fourth, `multi_agent_team` (port 8040), is a planner/researcher/executor team that reports which agent acted on
+every message and tool call; with `agent_roles` in its policy it runs `multi_agent_delegation` too. Vulnerable fails
+all 38 of its scenarios, `--safe` passes all 38. See [Multi-agent testing](multi-agent.md). See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md)
 for what each one models and why, and
 [`demo_action_without_authorization.py`](../examples/real_world_agents/demo_action_without_authorization.py)
 for a concrete, standalone before/after walkthrough of `action_without_authorization` against

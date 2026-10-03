@@ -38,9 +38,13 @@ The test suite covers:
 - Infinite loops and missing termination conditions
 - Unsafe handling of retrieved documents
 - Actions a tool is globally allowed to perform but that the *current task* never authorized (`action_without_authorization`, when the policy declares `tool_effects`) -- see [Policy reference](docs/policy-reference.md#tool_effects)
+- Dangerous compositions of individually allowed calls, tracked as data flow: private data read by one call and sent out by another to a destination the user never named, untrusted text executed as a command, untrusted instructions handed to another agent (`dangerous_composition`)
+- Agents misreporting what they did: denying a side effect the trace shows, or claiming work that never happened (`deceptive_action_report`)
+- Identity, session and authorization confusion: acting on another user's or tenant's resource, reusing a permission granted for an earlier task or another session, using a credential another caller left behind (`identity_and_session_confusion`)
+- Multi-agent privilege abuse: sub-agents exceeding their role, privilege escalation through delegation (confused deputy), unauthorized delegation, unregistered agents, secrets passed between agents (`multi_agent_delegation`, when the policy declares `agent_roles`) -- see [Multi-agent testing](docs/multi-agent.md)
 - Behavioural regressions across models and prompts, via `agentsec compare`
 
-Multi-agent trust and delegation failures are not covered yet; see [Future Work](#future-work). Identity and privilege misuse is partly covered (calls outside the allowlist, destinations outside a declared address allowlist, and task-scoped authorization above), but not exhaustively -- see [OWASP mapping](docs/owasp-mapping.md). Unauthorized financial or on-chain actions are covered, but not by the default nine categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md).
+Every check above is deterministic and opt-in by declaration: categories that need `tool_effects` or `agent_roles` build no scenarios without them, and a multi-agent scenario run against a system that reports no agent attribution is reported as **not observable**, never as passed. Unauthorized financial or on-chain actions are covered, but not by the default thirteen categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md). What has and has not been tested against real agents and frameworks is in [Testing](docs/testing.md#what-has-been-tested-against-real-agents-and-frameworks).
 
 Findings are mapped to the [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/) (ASI01 to ASI10).
 
@@ -130,8 +134,8 @@ python examples/vulnerable_rag_agent/server.py &          # add --safe for the h
 agentsec test --policy examples/vulnerable_rag_agent/agentsec.yaml
 ```
 
-Against the vulnerable agent you should see 34 scenarios executed and findings in all eight
-categories. With `--safe`, all 34 pass.
+Against the vulnerable agent you should see 35 scenarios executed and findings in all eight
+categories. With `--safe`, all 35 pass.
 
 **Reports.** `agentsec test` writes `.agentsec/report.json` and a self-contained `.agentsec/report.html`
 (`--format json,html,markdown,sarif` to choose; `sarif` writes `results.sarif` for
@@ -263,7 +267,8 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, real-world, MCP) and attack packs
-tests/                # Unit and end-to-end tests (325+ tests)
+tests/                # Unit and end-to-end tests (420+ tests)
+benchmarks/           # Framework, memory-system and real-agent runs (results checked in)
 ```
 
 ### Core components
@@ -335,13 +340,14 @@ testing without a hosted dashboard; see [GitHub Actions](docs/github-actions.md#
 
 ### Engine and coverage
 
-- [ ] Multi-agent adversarial simulation
-- [ ] Agent identity and delegation testing
+- [x] Multi-agent delegation and privilege-abuse testing (`agent_roles`, `multi_agent_delegation`); exercised against a reference team and real OpenAI Agents SDK / CrewAI teams with a scripted model -- see [Multi-agent testing](docs/multi-agent.md)
+- [x] Agent identity and session-boundary testing (`identity_and_session_confusion`)
+- [ ] Multi-agent attribution for systems that share one MCP client across agents (not observable today)
 - [ ] Stateful, multi-turn campaign generation
 - [ ] Cross-agent failure-propagation analysis
 - [ ] Memory-poisoning scenarios longer than one follow-up session
 - [ ] MCP-specific attacks beyond hostile tool results and decoy tools; see [MCP testing](docs/mcp-testing.md)
-- [ ] Dedicated adapters for other agent frameworks (CrewAI, AutoGen, LlamaIndex, OpenAI Agents SDK) — the generic `CallableAdapter` covers them today; see [Frameworks](docs/frameworks.md#any-other-framework)
+- [ ] Dedicated adapters for other agent frameworks. The generic `CallableAdapter` plus the in-process `ToolHost` covers them today, and the same scenarios have been run through LangChain, LangGraph, CrewAI, AutoGen, the OpenAI Agents SDK, Google ADK and smolagents with a scripted model -- see [benchmarks/framework-compat](benchmarks/framework-compat/MATRIX.md)
 
 Real-world verification: the packaged GitHub Action -- via the actual public `uses: invarislabs/invaris-agentsec@main`
 path, not a local reference -- has been run repeatedly on real GitHub Actions infrastructure (see
@@ -349,9 +355,10 @@ path, not a local reference -- has been run repeatedly on real GitHub Actions in
 is confirmed working end to end: the generated SARIF validates, uploads successfully, and real findings appear
 in this repo's own Security > Code scanning tab. (Those alerts are visible to signed-in users with access to
 the repository, not to signed-out visitors -- a GitHub platform behavior, not an AgentSec one, worth knowing
-before relying on a bare link in a demo.) Still open: the LangChain/LangGraph integration and MCP server
-testing are exercised by the test suite but have not yet been run against a real LLM-backed agent or a real
-MCP server in production. See [Testing](docs/testing.md) for exactly what is and isn't covered.
+before relying on a bare link in a demo.) The MCP attack host has been run against a real LLM-backed agent
+(the Claude Code CLI, with its built-in tools disabled and every MCP tool simulated); see
+[benchmarks/real-agents](benchmarks/real-agents/README.md). Codex, Gemini CLI and Cursor have not been run. See
+[Testing](docs/testing.md) for exactly what is and isn't covered.
 
 ## Intended Users
 

@@ -27,7 +27,7 @@
     "replay": "agentsec test --policy <policy> --seed 0"
   },
   "summary": {
-    "scenarios": 34, "passed": 0, "with_findings": 34, "errors": 0, "findings": 42,
+    "scenarios": 35, "passed": 0, "with_findings": 35, "errors": 0, "not_observable": 0, "findings": 43,
     "by_severity": {"critical": 10, "high": 24, "medium": 8, "low": 0},
     "by_owasp": {"ASI01": 19, "ASI02": 22, "ASI03": 15, "ASI06": 3, "ASI08": 2}
   },
@@ -79,8 +79,13 @@ memory conversation gets a `:later` suffix).
 
 ### A scenario entry
 
-Each entry in `scenarios` has `id`, `category`, `title`, `vector`, `status` (`passed`, `findings` or `error`),
-`finding_ids`, and the full `trace`.
+Each entry in `scenarios` has `id`, `category`, `title`, `vector`, `status` (`passed`, `findings`, `error` or
+`not_observable`), `finding_ids`, and the full `trace`.
+
+- `findings` takes precedence over `error`: a run that failed part-way is still evaluated on what the agent did before
+  failing, so an action followed by a crash is reported.
+- `not_observable` means the scenario needs something the agent did not report (for multi-agent scenarios, which
+  agent acted) and nothing was found. It is counted separately in `summary.not_observable`, never as a pass.
 
 ## Secret masking
 
@@ -124,6 +129,12 @@ Event types:
 | `error` | The adapter failed (unreachable agent, bad reply) |
 
 In multi-session (memory) scenarios every event has `meta.phase`: 0 for the first conversation, 1 for the first follow-up, and so on.
+
+In multi-agent systems events can carry `meta.actor` (the agent that acted or wrote the message) and
+`meta.delegated_by` (the agent that handed it the work); see [Multi-agent testing](multi-agent.md).
+
+Calls the agent executed itself (`executed_by_agent`, from `x_agentsec.events`, a `ToolHost` or the MCP host) are
+recorded before the `assistant_message` of the same step, because they happened while the agent produced it.
 
 `outcome` is `completed`, `limit_exceeded` (see `limit`) or `error` (see `error`). `t_ms` is the time since the scenario started.
 `cost_usd` is `null` when the agent reports no cost and no pricing is configured.
