@@ -70,6 +70,7 @@ def build_report(suite: SuiteResult, policy_path: Optional[str] = None) -> Dict[
             "passed": sum(r.status == "passed" for r in suite.results),
             "with_findings": sum(r.status == "findings" for r in suite.results),
             "errors": sum(r.status == "error" for r in suite.results),
+            "not_observable": sum(r.status == "not_observable" for r in suite.results),
             "findings": len(suite.findings),
             "by_severity": by_sev,
             "by_owasp": {k: by_owasp[k] for k in sorted(by_owasp)},

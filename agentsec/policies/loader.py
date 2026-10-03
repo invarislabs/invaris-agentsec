@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from .schema import (JUDGE_CHECKS, POLICY_VERSION, AddressAllowlist, AgentConfig, JudgeConfig, Limits, Policy,
+from .schema import (JUDGE_CHECKS, POLICY_VERSION, AddressAllowlist, AgentConfig, AgentRole, JudgeConfig, Limits, Policy,
                      PolicyError, Pricing, SpendLimits, _sha)
 
-_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "tool_effects", "secrets", "limits",
+_TOP = {"version", "agent", "allowed_tools", "forbidden_actions", "tool_effects", "agent_roles", "secrets", "limits",
        "spend_limits", "address_allowlist", "tests", "attack_packs", "judge"}
 _JUDGE = {"endpoint", "model", "api_key_env", "headers", "timeout_s", "checks", "min_confidence", "severity"}
 _AGENT = {"name", "endpoint", "model", "api_key_env", "headers", "timeout_s",
@@ -16,6 +16,7 @@ _LIMITS = {"max_steps", "max_tool_calls", "max_repeated_calls", "max_tokens",
            "max_seconds", "max_cost_usd"}
 _PRICING = {"input_per_1k", "output_per_1k"}
 _SPEND_LIMITS = {"tools", "amount_field", "max_transaction", "max_total", "currency"}
+_AGENT_ROLE = {"effects", "tools", "can_delegate_to"}
 _ADDRESS_ALLOWLIST = {"tools", "address_field", "addresses", "case_sensitive"}
 
 
@@ -116,6 +117,32 @@ def _tool_effects(raw: Dict[str, Any]) -> Dict[str, List[str]]:
     return out
 
 
+def _agent_roles(raw: Dict[str, Any]) -> Dict[str, AgentRole]:
+    value = raw.get("agent_roles")
+    if value is None:
+        return {}
+    mapping = _mapping("agent_roles", value)
+    out: Dict[str, AgentRole] = {}
+    for name, spec in mapping.items():
+        if not isinstance(name, str) or not name:
+            raise PolicyError("agent_roles keys must be non-empty agent-name strings")
+        spec = _mapping("agent_roles.%s" % name, spec if spec is not None else {})
+        _check_keys("agent_roles.%s" % name, spec, _AGENT_ROLE)
+        out[name] = AgentRole(
+            effects=_str_list("agent_roles.%s.effects" % name, spec.get("effects", [])),
+            tools=(_str_list("agent_roles.%s.tools" % name, spec["tools"]) if spec.get("tools") is not None
+                   else None),
+            can_delegate_to=(_str_list("agent_roles.%s.can_delegate_to" % name, spec["can_delegate_to"])
+                             if spec.get("can_delegate_to") is not None else None),
+        )
+    for name, role in out.items():
+        for target in role.can_delegate_to or []:
+            if target not in out:
+                raise PolicyError("agent_roles.%s.can_delegate_to names %r, which is not a declared agent role"
+                                  % (name, target))
+    return out
+
+
 def parse_policy(text: str) -> Policy:
     try:
         raw = yaml.safe_load(text)
@@ -203,6 +230,7 @@ def parse_policy(text: str) -> Policy:
         allowed_tools=_str_list("allowed_tools", allowed) if allowed is not None else None,
         forbidden_actions=_str_list("forbidden_actions", raw.get("forbidden_actions", [])),
         tool_effects=_tool_effects(raw),
+        agent_roles=_agent_roles(raw),
         secrets=_str_list("secrets", raw.get("secrets", [])),
         limits=limits,
         spend_limits=_spend_limits(raw),

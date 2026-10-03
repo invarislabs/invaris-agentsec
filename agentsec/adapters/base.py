@@ -13,6 +13,10 @@ class ToolCall:
     id: str
     name: str
     arguments: Dict[str, Any]
+    # Multi-agent systems: which agent made this call, and which agent delegated the work to it.
+    # Optional; single-agent systems leave both unset. Recorded on the trace event's meta.
+    actor: Optional[str] = None
+    delegated_by: Optional[str] = None
 
 
 @dataclass
@@ -23,8 +27,10 @@ class AgentReply:
     completion_tokens: int = 0
     cost_usd: Optional[float] = None
     # Tool calls the agent executed itself (server-side) and reported via the
-    # `x_agentsec.events` extension: [{"name", "arguments", "result"}].
+    # `x_agentsec.events` extension: [{"name", "arguments", "result", "actor"?, "delegated_by"?}].
     executed: List[Dict[str, Any]] = field(default_factory=list)
+    # Multi-agent systems: which agent wrote `content` (see ToolCall.actor).
+    actor: Optional[str] = None
 
 
 class AgentAdapter:

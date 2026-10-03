@@ -71,6 +71,19 @@ class AddressAllowlist:
     case_sensitive: bool = False
 
 
+@dataclass
+class AgentRole:
+    """One agent in a multi-agent system and the authority it holds (see docs/multi-agent.md).
+
+    `effects` is the ceiling of what this agent may do itself, in the `tool_effects` vocabulary.
+    `tools`, when set, additionally restricts it to those tool names. `can_delegate_to`, when set,
+    lists the agents it may hand work to; delegating at all requires `delegation` in `effects`.
+    Work an agent delegates can never carry more authority than the delegating agent holds."""
+    effects: List[str] = field(default_factory=list)
+    tools: Optional[List[str]] = None
+    can_delegate_to: Optional[List[str]] = None
+
+
 JUDGE_CHECKS = ("goal_hijack", "paraphrased_leak")
 
 
@@ -107,6 +120,9 @@ class Policy:
     # docs/policy-reference.md#tool_effects); unset for a tool means "unknown", not "read-only",
     # so evaluators that rely on this never guess a tool's effect from its name.
     tool_effects: Dict[str, List[str]] = field(default_factory=dict)
+    # Multi-agent systems: agent name -> the authority that agent holds. Empty = single agent, or
+    # roles not declared; multi-agent checks then stay silent (agentsec/evaluators/delegation.py).
+    agent_roles: Dict[str, AgentRole] = field(default_factory=dict)
     tests: List[str] = field(default_factory=list)
     attack_packs: List[str] = field(default_factory=list)  # extra scenario packs to load (see agentsec.attacks.packs)
     judge: Optional[JudgeConfig] = None
@@ -139,6 +155,8 @@ class Policy:
             "allowed_tools": self.allowed_tools,
             "forbidden_actions": self.forbidden_actions,
             "tool_effects": self.tool_effects,
+            "agent_roles": {name: {"effects": r.effects, "tools": r.tools, "can_delegate_to": r.can_delegate_to}
+                            for name, r in self.agent_roles.items()},
             "secrets_count": len(self.secrets),
             "limits": self.limits.__dict__.copy(),
             "spend_limits": ({"tools": sl.tools, "amount_field": sl.amount_field,

@@ -4,6 +4,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
+from ..effects import DATA_LABELS, INTERNAL_EFFECTS, tools_with
 from ..policies import Policy
 
 # How adversarial content reaches the agent.
@@ -23,6 +24,10 @@ class Followup:
     user_message: str
     responder: Optional[ToolResponder] = None
     same_session: bool = True  # False = a different simulated user
+    # What THIS conversation's user_message authorizes (see Scenario.authorized_effects). None =
+    # no claim. Authorization is per conversation: an effect authorized in an earlier
+    # conversation but not this one is reported as `stale_authorization`.
+    authorized_effects: Optional[List[str]] = None
 
 
 @dataclass
@@ -45,6 +50,15 @@ class Scenario:
     # ActionAuthorizationEvaluator ignores it -- most scenarios don't narrate "what the user
     # meant to allow" and shouldn't be scored against a boundary they never asserted.
     authorized_effects: Optional[List[str]] = None
+    # Identifiers that belong to a *different* user, customer or tenant than the one this
+    # scenario's user is acting as (another account id, another tenant's project key, ...). The
+    # agent acting on one of them -- passing it as a tool-call argument -- is a cross-principal
+    # access (see agentsec/evaluators/identity.py). Merely seeing one in a result is not.
+    foreign_identifiers: List[str] = field(default_factory=list)
+    # The scenario can only be judged if the system under test reports which agent acted (trace
+    # meta `actor`, see docs/multi-agent.md). A run without any attribution is reported as
+    # "not_observable", never as "passed".
+    requires_actor: bool = False
 
 
 @dataclass
@@ -70,10 +84,16 @@ class ScenarioContext:
             if name in self.policy.forbidden_actions:
                 continue
             effects = self.policy.tool_effects.get(name, [])
-            extra = [e for e in effects if e != "read"]
+            extra = [e for e in effects if e != "read" and e not in DATA_LABELS and e not in INTERNAL_EFFECTS]
             if extra:
                 return name, extra
         return None
+
+    def tools_with(self, *effects: str) -> List[str]:
+        """Allowed, non-forbidden tools whose declared `tool_effects` include any of `effects`
+        (action effects or data labels), in allowlist order. Empty when nothing is declared --
+        callers must then produce no scenarios rather than guess from tool names."""
+        return tools_with(self.policy, effects)
 
     def retrieval_tool(self) -> str:
         """The tool whose results carry adversarial content in retrieval scenarios."""

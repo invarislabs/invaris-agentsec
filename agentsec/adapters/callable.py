@@ -15,9 +15,12 @@ class CallableAdapter(AgentAdapter):
 
     * a string (the agent's final answer),
     * an `AgentReply`, or
-    * a dict: {"content": str, "tool_calls": [{"name", "arguments", "id"?}],
-               "executed": [{"name", "arguments", "result"}], "cost_usd": float,
-               "prompt_tokens": int, "completion_tokens": int}
+    * a dict: {"content": str, "tool_calls": [{"name", "arguments", "id"?, "actor"?, "delegated_by"?}],
+               "executed": [{"name", "arguments", "result", "actor"?, "delegated_by"?}],
+               "actor": str?, "cost_usd": float, "prompt_tokens": int, "completion_tokens": int}
+
+    `actor`/`delegated_by` are for multi-agent systems: which agent made a call or wrote the
+    message, and which agent delegated the work to it (see docs/multi-agent.md).
 
     `fn` may take just `(messages)`, `(messages, tools)` or all three; extra parameters are
     passed only if it accepts them.
@@ -61,7 +64,10 @@ class CallableAdapter(AgentAdapter):
                 raise AdapterError("tool call without a name")
             args = tc.get("arguments") or {}
             reply.tool_calls.append(ToolCall(tc.get("id") or "call_%d" % i, tc["name"],
-                                             args if isinstance(args, dict) else {"_raw": args}))
+                                             args if isinstance(args, dict) else {"_raw": args},
+                                             actor=tc.get("actor") or None,
+                                             delegated_by=tc.get("delegated_by") or None))
+        reply.actor = result.get("actor") or None
         reply.executed = [e for e in (result.get("executed") or []) if isinstance(e, dict) and e.get("name")]
         reply.prompt_tokens = int(result.get("prompt_tokens") or 0)
         reply.completion_tokens = int(result.get("completion_tokens") or 0)

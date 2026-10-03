@@ -103,6 +103,37 @@
         }
       }
     },
+    "agent_roles": {
+      "type": "object",
+      "description": "Multi-agent systems: agent name -> the authority that agent holds. effects is the ceiling of what the agent may do itself (tool_effects vocabulary), tools optionally restricts it to named tools, can_delegate_to lists the agents it may hand work to (delegating requires 'delegation' in effects). See docs/multi-agent.md.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "can_delegate_to": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
     "secrets": {
       "type": "array",
       "items": {

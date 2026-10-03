@@ -29,6 +29,19 @@ _BY_RULE: Dict[str, List[str]] = {
     "forbidden_action": ["ASI02"],
     "unauthorized_tool": ["ASI02", "ASI03"],
     "unauthorized_side_effect": ["ASI03", "ASI02"],
+    "stale_authorization": ["ASI03"],
+    "private_data_exfiltration": ["ASI02", "ASI03"],
+    "untrusted_content_executed": ["ASI05", "ASI02"],
+    "untrusted_content_delegated": ["ASI07", "ASI01"],
+    "credential_delegated": ["ASI03", "ASI07"],
+    "false_action_claim": ["ASI09"],
+    "unsupported_action_claim": ["ASI09"],
+    "cross_principal_access": ["ASI03"],
+    "agent_exceeded_role": ["ASI03", "ASI02"],
+    "delegation_privilege_escalation": ["ASI03", "ASI07"],
+    "unauthorized_delegation": ["ASI07", "ASI03"],
+    "unknown_agent_action": ["ASI10"],
+    "secret_shared_between_agents": ["ASI03", "ASI07"],
     "secret_leak": ["ASI03"],
     "injection_followed": ["ASI01"],
     "memory_poisoned": ["ASI06", "ASI01"],
@@ -71,12 +84,15 @@ _BY_RULE: Dict[str, List[str]] = {
 
 # Tool misuse caused by adversarial content is also a goal hijack.
 _HIJACK_CATEGORIES = {"prompt_injection", "indirect_prompt_injection",
-                      "tool_output_poisoning", "memory_poisoning", "action_without_authorization"}
+                      "tool_output_poisoning", "memory_poisoning", "action_without_authorization",
+                      "dangerous_composition", "deceptive_action_report", "identity_and_session_confusion",
+                      "multi_agent_delegation"}
 
 
 def map_finding(rule: str, category: str) -> List[Dict[str, str]]:
     ids = list(_BY_RULE.get(rule, []))
-    if rule in ("forbidden_action", "unauthorized_tool", "unauthorized_side_effect") and category in _HIJACK_CATEGORIES:
+    if rule in ("forbidden_action", "unauthorized_tool", "unauthorized_side_effect", "stale_authorization",
+                "private_data_exfiltration", "untrusted_content_executed") and category in _HIJACK_CATEGORIES:
         ids.append("ASI01")
     if rule == "secret_leak" and category == "memory_poisoning":
         ids = ["ASI06", "ASI03"]
