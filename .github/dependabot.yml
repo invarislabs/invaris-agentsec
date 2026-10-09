@@ -1,11 +1,19 @@
 version: 2
 updates:
   # Keeps the commit-pinned GitHub Actions in .github/workflows and action.yml current.
+  # All action updates arrive together as one weekly pull request.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+  # Keeps the pinned requirements.txt current, also as one weekly pull request.
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
+    groups:
+      python-dependencies:
+        patterns: ["*"]
