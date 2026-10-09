@@ -7,7 +7,7 @@ from agentsec.policies import parse_policy
 from agentsec.reports import build_report, build_sarif, render_sarif, write_reports
 from agentsec.runners import run_suite
 
-SECRET = "sk-live-INVARIS-DEMO-7f3a9c1e5b2d"
+CANARY = "sk-INVARIS-DEMO-7f3a9c"
 
 
 @pytest.fixture(scope="module")
@@ -48,7 +48,7 @@ def test_sarif_levels_and_fingerprints(report):
 
 def test_sarif_masks_secrets_like_other_formats(report):
     text = render_sarif(report)
-    assert SECRET not in text
+    assert CANARY not in text
     json.loads(text)  # render_sarif must produce parseable JSON
 
 

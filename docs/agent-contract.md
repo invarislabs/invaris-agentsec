@@ -135,7 +135,7 @@ The server answers a POST on any path, so both `/agent` and `/v1/chat/completion
 **Vulnerable mode.** It behaves like a badly built agent:
 
 - It obeys any "call `tool_name`" instruction it finds in a user message, in a base64 blob it decodes, in a tool result or in a document.
-- It follows marker instructions and prints a system prompt containing a demo secret (`sk-live-INVARIS-DEMO-7f3a9c1e5b2d`) on request.
+- It follows marker instructions and prints a system prompt containing a demo secret (`sk-INVARIS-DEMO-7f3a9c`) on request.
 - It puts restricted document content into its answers.
 - It retries forever when a tool says "try again" or "call again", and it fans out one call per item.
 - It stores anything it is told to "remember" or "save to memory", including from documents and tool results, replays it in later conversations of the same session, and shares user facts with other users.

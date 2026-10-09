@@ -8,13 +8,13 @@ from agentsec import CATEGORIES, AgentTarget, SecuritySuite
 from agentsec.policies import PolicyError
 
 ROOT = Path(__file__).resolve().parent.parent
-SECRET = "sk-live-INVARIS-DEMO-7f3a9c1e5b2d"
+CANARY = "sk-INVARIS-DEMO-7f3a9c"
 
 
 def target(url, **kw):
     return AgentTarget(url, allowed_tools={"search_documents", "create_draft"},
                        forbidden_tools={"send_email", "execute_payment", "reveal_credentials"},
-                       secrets=[SECRET],
+                       secrets=[CANARY],
                        tool_effects={"search_documents": ["read"], "create_draft": ["write"]}, **kw)
 
 

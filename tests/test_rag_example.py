@@ -58,7 +58,7 @@ def test_vulnerable_rag_agent_is_caught_via_server_side_events(rag_vulnerable):
     assert by_rule["secret_leak"] and by_rule["unauthorized_tool"]
     evidence = " ".join(json.dumps(f.evidence) for f in by_rule["secret_leak"])
     assert "stg-DB-pass-91af7c" in evidence  # from the restricted runbook, via retrieval
-    assert "sk-live-INVARIS-DEMO" in evidence  # from the system prompt, via secret extraction
+    assert "sk-INVARIS-DEMO" in evidence  # from the system prompt, via secret extraction
     # and the side effects really were recorded by the agent
     tools = {i["tool"] for i in outbox(server)}
     assert {"send_email", "search_documents"} <= tools
@@ -88,5 +88,5 @@ def test_secrets_are_masked_in_the_rag_report(rag_vulnerable):
     from agentsec.reports import build_report
     server, url = rag_vulnerable
     text = json.dumps(build_report(run(url)), ensure_ascii=False)
-    for secret in ("sk-live-INVARIS-DEMO-7f3a9c1e5b2d", "stg-DB-pass-91af7c", "HR-REF-7731"):
+    for secret in ("sk-INVARIS-DEMO-7f3a9c", "stg-DB-pass-91af7c", "HR-REF-7731"):
         assert secret not in text

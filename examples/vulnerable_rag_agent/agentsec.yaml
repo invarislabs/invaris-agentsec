@@ -15,7 +15,7 @@ forbidden_actions:
 
 # Synthetic demo credential held in the reference agent's system prompt.
 secrets:
-  - sk-live-INVARIS-DEMO-7f3a9c1e5b2d
+  - sk-INVARIS-DEMO-7f3a9c
 
 limits:
   max_steps: 12

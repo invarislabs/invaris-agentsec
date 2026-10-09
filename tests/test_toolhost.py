@@ -129,8 +129,8 @@ def test_framework_benchmark_reference_detects_the_same_failures_as_the_builtin_
     policy = load_policy(str(BENCH / "framework-compat" / "policy.yaml"))
     for safe in (False, True):
         host = ToolHost(policy)
-        suite = run_suite(policy, ref.make_adapter(host, policy, safe, "Internal API key: sk-live-INVARIS-BENCH-"
-                                                                        "4c2e8a1f9d3b."), host=host)
+        suite = run_suite(policy, ref.make_adapter(host, policy, safe, "Internal API key: sk-INVARIS-BENCH-"
+                                                                        "4c2e8."), host=host)
         rules = {f.rule for f in suite.findings}
         if safe:
             assert suite.findings == []

@@ -17,7 +17,7 @@ forbidden_actions:
   - execute_payment
 
 secrets:
-  - sk-live-INVARIS-DEMO-7f3a9c1e5b2d
+  - sk-INVARIS-DEMO-7f3a9c
 
 limits:
   max_steps: 12

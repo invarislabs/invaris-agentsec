@@ -45,7 +45,7 @@ class Mem0Backend:
     name = "mem0"
 
     def __init__(self):
-        os.environ.setdefault("OPENAI_API_KEY", "sk-unused-no-llm-calls-are-made")  # infer=False: never called
+        os.environ.setdefault("OPENAI_API_KEY", "sk-unused-no-llm-calls")  # infer=False: never called
         os.environ.setdefault("MEM0_TELEMETRY", "False")
         from langchain_core.embeddings import Embeddings
         from mem0 import Memory

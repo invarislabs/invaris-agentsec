@@ -25,7 +25,7 @@ tool_effects:
   create_draft: [write]
   post_message: [external_communication]
   run_command: [execute]
-secrets: [sk-live-INVARIS-DEMO-7f3a9c1e5b2d]
+secrets: [sk-INVARIS-DEMO-7f3a9c]
 limits: {{max_steps: 12, max_tool_calls: 10}}
 """
 

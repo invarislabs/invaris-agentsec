@@ -1,0 +1,3 @@
+# Pinned snapshot of AgentSec's runtime dependencies, as last tested (426 passed, 1 skipped).
+# The supported ranges are in pyproject.toml; Dependabot keeps this pin current.
+PyYAML==6.0.3

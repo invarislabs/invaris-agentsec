@@ -39,7 +39,7 @@ marker="<!-- agentsec-compare:${COMMENT_MARKER_KEY:-default} -->"
 body_file="$(mktemp)"
 { echo "$marker"; echo; echo "### AgentSec regression comparison"; echo; cat "$SUMMARY_PATH"; } > "$body_file"
 
-export GH_TOKEN="$GITHUB_TOKEN"
+export GH_TOKEN="${GITHUB_TOKEN}"
 existing="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" --paginate \
   --jq ".[] | select(.body | startswith(\"$marker\")) | .id" 2>/dev/null | head -n1 || true)"
 

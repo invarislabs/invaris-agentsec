@@ -11,7 +11,7 @@ target = AgentTarget(
     endpoint="http://localhost:8000/agent",
     allowed_tools={"search_documents", "create_draft"},
     forbidden_tools={"send_email", "execute_payment"},
-    secrets=["sk-live-EXAMPLE-DO-NOT-USE-REAL-KEYS"],
+    secrets=["sk-EXAMPLE-FAKE-KEY"],
 )
 
 result = SecuritySuite(target).run("indirect_prompt_injection")
