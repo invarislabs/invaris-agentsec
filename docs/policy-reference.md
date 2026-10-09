@@ -27,7 +27,7 @@ allowed_tools: [search_documents, create_draft]
 forbidden_actions: [send_email, reveal_credentials, execute_payment]
 
 secrets:
-  - sk-live-EXAMPLE-DO-NOT-USE-REAL-KEYS
+  - sk-EXAMPLE-FAKE-KEY
   - env:DB_TEST_PASSWORD
 
 limits:

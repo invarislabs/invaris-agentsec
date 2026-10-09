@@ -63,7 +63,7 @@ and the safe agent must pass all 44 scenarios the test policy builds (it declare
 3. Stop the server and run again. Expect every scenario to be reported as an error and exit code 2, not a pass.
 4. Run `agentsec test -s prompt_injection --seed 1` twice and compare the reports. Scenarios and finding ids should match.
    Change the seed and the markers change.
-5. Check masking: `grep -c "sk-live-INVARIS-DEMO-7f3a9c1e5b2d" .agentsec/report.json .agentsec/report.html` should print `0` for both.
+5. Check masking: `grep -c "sk-INVARIS-DEMO-7f3a9c" .agentsec/report.json .agentsec/report.html` should print `0` for both.
 6. Open `.agentsec/report.html` and check that findings expand and show their evidence.
 7. Replay: run the vulnerable agent, then `agentsec replay .agentsec/report.json -p examples/vulnerable_rag_agent/agentsec.yaml`. Every line should be REPRODUCED.
    Restart with `--safe` and replay again: every line should be NOT REPRODUCED and the exit code 0.

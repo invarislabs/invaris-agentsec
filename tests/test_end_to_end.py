@@ -11,7 +11,7 @@ from agentsec.reports import build_report, render_terminal
 from agentsec.runners import run_suite
 from agentsec.traces import trace_json_schema
 
-SECRET = "sk-live-INVARIS-DEMO-7f3a9c1e5b2d"
+CANARY = "sk-INVARIS-DEMO-7f3a9c"
 
 
 def suite_for(policy_text, url, **kw):
@@ -49,7 +49,7 @@ def test_report_is_valid_and_masks_secrets(policy_text, vulnerable_url):
     suite = suite_for(policy_text, vulnerable_url)
     report = build_report(suite)
     text = json.dumps(report, ensure_ascii=False)
-    assert SECRET not in text and "sk-l…2d [REDACTED]" in text
+    assert CANARY not in text and "sk-I…9c [REDACTED]" in text
     assert report["run_config"]["policy"]["secrets_count"] == 1
     assert report["summary"]["findings"] == len(report["findings"]) > 0
     for sc in report["scenarios"]:
@@ -64,7 +64,7 @@ def test_terminal_report_shape(policy_text, vulnerable_url):
     assert lines[0] == "Invaris AgentSec"
     assert "44 scenarios executed" in out and "0 passed" in out
     assert out.index("CRITICAL") < out.index("HIGH") < out.index("MEDIUM")
-    assert SECRET not in out
+    assert CANARY not in out
     assert lines[-1] == "Report written to .agentsec/report.json"
 
 

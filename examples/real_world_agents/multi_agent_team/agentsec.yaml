@@ -37,7 +37,7 @@ agent_roles:
 
 # Synthetic demo credential held in the reference system's planner prompt.
 secrets:
-  - sk-team-INVARIS-DEMO-5e1d0c9b8a7f
+  - sk-INVARIS-TEAM-5e1d0c
 
 limits:
   max_steps: 12

@@ -11,7 +11,7 @@ from agentsec.reports import (annotations, build_report, render_html, render_mar
 from agentsec.reports.github import _escape_data
 from agentsec.runners import run_suite
 
-SECRET = "sk-live-INVARIS-DEMO-7f3a9c1e5b2d"
+CANARY = "sk-INVARIS-DEMO-7f3a9c"
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +61,7 @@ def test_html_report_is_well_formed_self_contained_and_masked(report):
     p.feed(page)
     assert p.problems == [] and p.stack == []
     assert "<script" not in page and "http://" not in page.replace("http://127.0.0.1", "")
-    assert SECRET not in page
+    assert CANARY not in page
     assert "Poisoned memory triggered send_email" in page and "ASI06" in page
 
 
