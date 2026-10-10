@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 427 tests should pass in under a minute (one, the LangGraph integration test, is skipped unless the optional LangGraph extra is installed). They need no network access or API keys. The end-to-end tests start the reference agent
+All 457 tests should pass in under a minute (one, the LangGraph integration test, is skipped unless the optional LangGraph extra is installed). They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -51,6 +51,8 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_identity.py` | `cross_principal_access`, `stale_authorization` (per-conversation scope), a credential reused in another user's session, the `identity_and_session_confusion` category |
 | `tests/test_multi_agent.py` | `DelegationEvaluator` rules, actor attribution through the HTTP and callable adapters, the multi-agent reference team (vulnerable caught, safe clean, legitimate delegation not flagged), and NOT OBSERVABLE for systems that report no attribution |
 | `tests/test_toolhost.py` | The in-process `ToolHost`, executed calls recorded before the reply they led to, actions taken before a crash still evaluated, MCP clients attributed by `clientInfo`, and the no-dependency baselines of the framework and memory benchmarks |
+| `tests/test_dashboard.py` | `agentsec dashboard` against real reports (vulnerable, hardened, unreachable agent, MCP scan): recursive discovery and skipped directories, summaries and insights that add up to the report, comparison matching `agentsec compare`, the HTTP API, CSP and security headers, Host-header (DNS rebinding) rejection, read-only methods, path traversal, secret masking, and that the page never parses report text as markup |
+| `tests/test_upload.py` | `agentsec upload` against a local receiving server: gzip JSON body, bearer token and metadata, `--no-traces`, token refusal over plain HTTP to another host, error messages, GitHub Actions metadata, CLI exit codes, and the Action upload step never failing the job |
 
 The two most important checks are the pair in `test_end_to_end.py`: the vulnerable agent must trigger findings in every built-in category the test policy supports (all except `multi_agent_delegation`, which needs a multi-agent system and is checked against the reference team in `test_multi_agent.py`),
 and the safe agent must pass all 44 scenarios the test policy builds (it declares `tool_effects` with data labels, so `action_without_authorization`, `dangerous_composition`, `deceptive_action_report` and `identity_and_session_confusion` all contribute; `examples/vulnerable_rag_agent/agentsec.yaml` itself lists only the original eight categories, so running the CLI directly against it, as in "Verify by hand" below, shows 35). Together they protect against both missed detections and false alarms.

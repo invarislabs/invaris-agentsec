@@ -12,6 +12,7 @@ full list. Planned work is in [Future Work](../README.md#future-work) and is not
 | [Attack catalog](attack-catalog.md) | See every scenario, what it simulates, and how a failure is detected |
 | [Agent contract](agent-contract.md) | Make your agent testable, and understand the reference agent |
 | [Reports and traces](reports-and-traces.md) | Use the JSON, HTML and Markdown reports, findings and the trace format |
+| [Dashboard](dashboard.md) | Browse findings, evidence, traces and comparisons in a local web UI |
 | [OWASP mapping](owasp-mapping.md) | See how findings map to the OWASP Top 10 for Agentic Applications |
 | [Judge (model-assisted checks)](judge.md) | Enable the optional judge model, and understand what it sends and reports |
 | [Python API and pytest](python-api-and-pytest.md) | Run scenarios from code and from pytest |
@@ -41,6 +42,7 @@ rules cannot see, and its findings are labelled as model-assisted.
 - Authority checks beyond tool allowlists: task-scoped authorization, data-flow tracking across calls, claim-versus-trace comparison, identity and session boundaries, and multi-agent delegation with authority attenuation.
 - Terminal, JSON, HTML, Markdown and SARIF reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
+- `agentsec dashboard`, a local, read-only web view of reports: findings with evidence, traces, the policy as run, MCP scans and run comparison; `agentsec upload` sends a report to a hosted dashboard (opt-in).
 - `agentsec mcp scan` to check MCP server tool, resource and prompt definitions (static, never calls, reads or fetches any of them), and `agentsec test --mcp-listen` to test an agent that uses MCP.
 - `agentsec compare` to diff two reports and flag regressions; the packaged GitHub Action can compare a run against a baseline report and post the result as a pull-request comment.
 - `attack_packs` / `agentsec test --attack-pack` to add your own scenario categories without forking AgentSec.
@@ -50,5 +52,5 @@ rules cannot see, and its findings are labelled as model-assisted.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
 - Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, a `LangChainAdapter` for LangChain and LangGraph agents, and an in-process `ToolHost` for frameworks that run their own tool loop (exercised with LangChain, LangGraph, CrewAI, AutoGen, the OpenAI Agents SDK, Google ADK and smolagents).
 - Six deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, a RAG-backed one that owns its documents and runs tools server-side, three modeled on real daily-use AI agent products (coding, customer-support and browser assistants), each paired with a matching domain attack pack, and a planner/researcher/executor multi-agent team.
-- 427 automated tests (426 pass and 1 is skipped without the optional LangGraph extra; with it installed, 431 run and pass).
+- 457 automated tests (456 pass and 1 is skipped without the optional LangGraph extra; with it installed, 461 run and pass).
 - Benchmarks with checked-in results: the same scenarios across seven agent frameworks, three memory backends (including mem0 and LangGraph's store), and a real Claude Code CLI session over MCP -- see [Testing](testing.md#what-has-been-tested-against-real-agents-and-frameworks).

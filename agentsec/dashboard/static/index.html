@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>AgentSec</title>
+<link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell" id="shell">
+  <header class="mobile-bar">
+    <a class="brand" href="#/"><img src="/static/mark.svg" alt="" width="22" height="22"><span>AgentSec</span></a>
+    <button class="btn" id="rail-toggle" type="button" aria-controls="rail" aria-expanded="false">Reports</button>
+  </header>
+  <aside class="rail" id="rail" aria-label="Reports">
+    <div class="rail-head">
+      <a class="brand" href="#/" aria-label="AgentSec home">
+        <img src="/static/mark.svg" alt="" width="22" height="22">
+        <span>AgentSec</span>
+      </a>
+      <button class="icon-btn" id="theme" type="button" title="Switch theme" aria-label="Switch theme">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14V3z" fill="currentColor"/><circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+    </div>
+    <nav class="rail-nav">
+      <a href="#/compare" id="nav-compare">Compare runs</a>
+    </nav>
+    <div class="rail-list" id="runs" role="list"></div>
+    <div class="rail-foot" id="rail-foot"></div>
+  </aside>
+  <main class="main" id="main" tabindex="-1"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

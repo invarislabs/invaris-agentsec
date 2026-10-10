@@ -47,6 +47,7 @@ include = ["agentsec*"]
 [tool.setuptools.package-data]
 "agentsec.policies" = ["*.json"]
 "agentsec.traces" = ["*.json"]
+"agentsec.dashboard" = ["static/*.html", "static/*.js", "static/*.css", "static/*.svg", "static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

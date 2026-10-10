@@ -143,6 +143,18 @@ categories. With `--safe`, all 35 pass.
 finding is tagged with the closest [OWASP Top 10 for Agentic Applications](https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/)
 category (ASI01 to ASI10).
 
+**Dashboard.** `agentsec dashboard` opens a local, read-only web view of your reports at
+`http://127.0.0.1:8710/`: a scenario grid by attack category, OWASP coverage, findings with their evidence and
+replay commands, every trace as a timeline, the policy as run, MCP scans, and run-to-run comparison. It reads the
+report files AgentSec already writes, never contacts the agent, and needs no extra dependencies. See
+[`docs/dashboard.md`](docs/dashboard.md). A hosted version for teams and run history is in development, also open
+source ([`invaris-agentsec-dashboard`](https://github.com/invarislabs/invaris-agentsec-dashboard)) and free at
+launch; see [Hosted dashboard](#hosted-dashboard).
+
+**Upload (opt-in).** `agentsec upload .agentsec/report.json --server <dashboard URL>` sends a report to a hosted
+dashboard with the project token in `AGENTSEC_TOKEN`. Add `--no-traces` to leave out full transcripts. Nothing is
+uploaded unless you run it.
+
 **Exit codes.** `agentsec test` exits `1` when findings exist (`--fail-on high` to raise the bar,
 `--fail-on none` to never fail) and `2` on configuration or connection errors. Use `--seed N` for a
 reproducible run and `-s <category-or-scenario-id>` to run a subset.
@@ -169,7 +181,7 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **Your own scenarios** can be added without forking AgentSec: `agentsec test --attack-pack my_pack.py` or `attack_packs:` in the policy loads extra categories from a local file or an installed package; see [`docs/extending.md`](docs/extending.md#write-an-attack-pack).
 
-**Other commands.** `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
+**Other commands.** `agentsec dashboard` browses reports in a local web UI, `agentsec upload` sends one to a hosted dashboard, `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
 
 The categories are `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`,
@@ -260,6 +272,7 @@ agentsec/
 ├── runners/          # Local runner and replay (CI and sandboxed planned)
 ├── traces/           # Normalized agent execution events
 ├── reports/          # Terminal, JSON, HTML, Markdown, SARIF and GitHub output
+├── dashboard/        # `agentsec dashboard`: local, read-only web UI over report files
 ├── cli/              # Command-line interface
 ├── compare.py        # Report-to-report regression comparison
 ├── owasp.py          # Mapping of findings to OWASP agentic categories
@@ -267,7 +280,7 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, real-world, MCP) and attack packs
-tests/                # Unit and end-to-end tests (420+ tests)
+tests/                # Unit and end-to-end tests (450+ tests)
 benchmarks/           # Framework, memory-system and real-agent runs (results checked in)
 ```
 
@@ -301,6 +314,8 @@ benchmarks/           # Framework, memory-system and real-agent runs (results ch
 
 - [x] Terminal, JSON, self-contained HTML, Markdown and SARIF 2.1.0 report formats (`--format`)
 - [x] Secrets masked everywhere, in every format
+- [x] `agentsec dashboard`: a local, read-only web dashboard over report files (findings, evidence, traces, policy, MCP scans, comparison), standard library only
+- [x] `agentsec upload`: opt-in upload of a report to a hosted dashboard with a project token (HTTPS only, `--no-traces` available), also as the Action's `dashboard-url` input
 - [x] `agentsec replay` re-runs findings from an earlier report to confirm a fix
 - [x] `agentsec compare` diffs two reports (new, fixed, unchanged, worse, better, not comparable)
 - [x] GitHub Actions workflow annotations and job summary, with no extra flags
@@ -324,19 +339,37 @@ benchmarks/           # Framework, memory-system and real-agent runs (results ch
 
 ## Future Work
 
-Everything below is not yet built. It splits into a hosted platform, which is commercial territory kept
-separate from the open-source engine, and engine-level coverage gaps that stay in scope for AgentSec itself.
+Everything below is not yet built, except where ticked. It splits into the hosted dashboard (open source, free at
+launch, with a few paid premium features later), and engine-level coverage gaps that stay in scope for AgentSec itself.
 
-### Hosted platform
+### Hosted dashboard
 
-- [ ] Hosted execution dashboard
-- [ ] Team projects and cross-run historical reports
-- [ ] Self-hosted enterprise deployment
-- [ ] Production trace monitoring (continuous monitoring of live agent traffic, not just test-time runs)
+A hosted AgentSec dashboard is in development, and it is open source too: its code is public under Apache-2.0
+at [`invarislabs/invaris-agentsec-dashboard`](https://github.com/invarislabs/invaris-agentsec-dashboard), so you
+can read exactly what it does with your reports or run it yourself. The hosted service will be **free at
+launch**. A few premium features added later will be paid and kept private; everything that exists today, in
+this repository and in the dashboard's, stays free and open source, including `agentsec dashboard`, the local
+viewer.
 
-The CLI-scoped equivalents of the first two items already exist and are open source: `agentsec compare`
-plus the GitHub Action's `baseline-report`/PR-comment support gives pull-request and scheduled regression
-testing without a hosted dashboard; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
+Reports reach a hosted dashboard only when you send them, with `agentsec upload` or the GitHub Action's
+`dashboard-url` input, using a project token; nothing is uploaded by default. Built for the free launch:
+
+- [x] Sign-in, projects, and project tokens for CI
+- [x] Every uploaded run kept per project, with branch, commit and CI-run links
+- [x] Findings history across runs, and run-to-run comparison in the browser
+- [x] The same report views as the local dashboard (findings with evidence, traces, policy, MCP scans)
+- [ ] Public launch of the hosted service
+
+Planned later:
+
+- [ ] Team members and roles
+- [ ] Premium features (paid, private): for example longer retention and higher limits, self-hosted enterprise
+  deployment, and production trace monitoring (continuous monitoring of live agent traffic, not just test-time runs)
+
+The open-source side of this already works today: `agentsec upload` sends a report (optionally without full
+transcripts, `--no-traces`), and `agentsec compare` plus the GitHub Action's `baseline-report`/PR-comment support
+gives pull-request and scheduled regression testing without any hosted service; see
+[GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
 
 ### Engine and coverage
 

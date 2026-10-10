@@ -220,6 +220,56 @@ def _cmd_mcp_scan(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    from ..dashboard import make_server
+    roots = args.paths or ["."]
+    missing = [r for r in roots if not os.path.exists(r)]
+    if missing:
+        raise PolicyError("no such file or directory: %s" % ", ".join(missing))
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print("warning: the dashboard is listening on %s. Reports contain your agent's real responses and "
+              "the dashboard has no login; only do this on a network you trust." % args.host, file=sys.stderr)
+    try:
+        server = make_server(roots, args.host, args.port, quiet=not args.verbose)
+    except OSError as exc:
+        raise PolicyError("cannot listen on %s:%d: %s (choose another port with --port)" % (args.host, args.port, exc))
+    entries = server.index.entries()
+    print("AgentSec dashboard at %s" % server.url)
+    print("Found %d report%s under %s; new and rewritten reports appear automatically."
+          % (len(entries), "" if len(entries) == 1 else "s", ", ".join(roots)))
+    print("Press Ctrl+C to stop.")
+    if args.open:
+        import webbrowser
+        webbrowser.open(server.url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return EXIT_OK
+
+
+def _cmd_upload(args: argparse.Namespace) -> int:
+    from ..upload import SERVER_ENV, UploadError, ci_metadata, upload
+    server = args.server or os.environ.get(SERVER_ENV, "")
+    if not server:
+        print("error: pass --server or set %s to your dashboard's URL" % SERVER_ENV, file=sys.stderr)
+        return EXIT_ERROR
+    meta = ci_metadata()
+    for key in ("branch", "commit", "label", "ci_url"):
+        value = getattr(args, key)
+        if value:
+            meta[key] = value
+    try:
+        result = upload(args.report, server, os.environ.get(args.token_env, ""), meta, no_traces=args.no_traces)
+    except UploadError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return EXIT_ERROR
+    print("Uploaded %s%s" % (args.report, (" to %s" % result["url"]) if result.get("url") else ""))
+    return EXIT_OK
+
+
 def _cmd_init(args: argparse.Namespace) -> int:
     try:
         with open(args.path, "x", encoding="utf-8") as fh:
@@ -294,6 +344,30 @@ def build_parser() -> argparse.ArgumentParser:
     ms.add_argument("--timeout", type=float, default=20.0)
     ms.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low")
     ms.set_defaults(func=_cmd_mcp_scan)
+
+    d = sub.add_parser("dashboard", help="browse reports in a local, read-only web dashboard")
+    d.add_argument("paths", nargs="*", metavar="PATH",
+                   help="report files or directories to search for report.json and mcp-report.json "
+                        "(default: the current directory)")
+    d.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1, this machine only)")
+    d.add_argument("--port", type=int, default=8710, help="port to listen on (default 8710; 0 picks a free one)")
+    d.add_argument("--open", action="store_true", help="open the dashboard in your browser")
+    d.add_argument("--verbose", "-v", action="store_true", help="log each request")
+    d.set_defaults(func=_cmd_dashboard)
+
+    u = sub.add_parser("upload", help="send a report to a hosted AgentSec dashboard (opt-in)")
+    u.add_argument("report", nargs="?", default=".agentsec/report.json",
+                   help="report.json or mcp-report.json to upload (default .agentsec/report.json)")
+    u.add_argument("--server", help="dashboard URL (or set AGENTSEC_SERVER)")
+    u.add_argument("--token-env", default="AGENTSEC_TOKEN", metavar="NAME",
+                   help="environment variable holding the project token (default AGENTSEC_TOKEN)")
+    u.add_argument("--branch", help="branch name to record (read from GitHub Actions automatically)")
+    u.add_argument("--commit", help="commit SHA to record (read from GitHub Actions automatically)")
+    u.add_argument("--ci-url", dest="ci_url", help="link to the CI run (read from GitHub Actions automatically)")
+    u.add_argument("--label", help="a short label for this run, e.g. 'gpt-4.1 prompt v3'")
+    u.add_argument("--no-traces", action="store_true",
+                   help="leave out the full scenario transcripts; findings and their evidence are still sent")
+    u.set_defaults(func=_cmd_upload)
 
     i = sub.add_parser("init", help="write a starter agentsec.yaml")
     i.add_argument("path", nargs="?", default="agentsec.yaml")

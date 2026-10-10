@@ -3,6 +3,24 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## Unreleased
+
+- New: `agentsec dashboard`, a local, read-only web dashboard over the report files AgentSec already writes
+  (`report.json`, `mcp-report.json`). Overview with a per-scenario grid by attack category, OWASP ASI01-ASI10
+  coverage, attack-vector and tool-call breakdowns; a findings explorer with evidence rendered as trace events and
+  copyable `agentsec replay` / `agentsec test -s` commands; full traces as timelines (memory phases, multi-agent
+  attribution, over-budget calls); the policy as run; MCP scan definitions; and run comparison using
+  `agentsec compare`'s logic. Standard library only, binds to 127.0.0.1, GET-only, Host-header checked, strict
+  CSP, report text never parsed as HTML, hidden characters made visible. New and rewritten reports appear live.
+  Bundles IBM Plex Sans and Mono (SIL Open Font License 1.1). See [docs/dashboard.md](docs/dashboard.md).
+- New: `agentsec upload`, opt-in upload of a report to a hosted AgentSec dashboard with a project token read from
+  `AGENTSEC_TOKEN` (never an argument), HTTPS-only except to localhost, gzip-compressed, with branch, commit and
+  CI-run metadata read from GitHub Actions and `--no-traces` to leave out transcripts. The GitHub Action gains
+  `dashboard-url`, `dashboard-token` and `dashboard-no-traces` inputs; a failed upload is a warning, never a
+  failed job.
+- Docs: the README's future-work section now describes the hosted dashboard: open source (Apache-2.0) at
+  `invarislabs/invaris-agentsec-dashboard`, free at launch, with a few paid, private premium features later.
+
 ## 0.7.0
 
 - Docs: `docs/testing.md` now lists everything that has not been tested yet (other real agents, Claude Code's

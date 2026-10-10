@@ -43,6 +43,9 @@ If your agent is already running (a staging URL in the policy), omit `start-comm
 | `python-version` | `3.11` | Python to set up (empty to skip) |
 | `package` | action checkout | What to `pip install` |
 | `extra-args` | empty | Extra `agentsec test` arguments, e.g. `-s prompt_injection/ignore_previous` |
+| `dashboard-url` | | Send the report to a hosted AgentSec dashboard with `agentsec upload` (opt-in). A failed upload is a warning, never a failed job |
+| `dashboard-token` | | Project token for `dashboard-url`; pass it from a secret |
+| `dashboard-no-traces` | `false` | Leave full scenario transcripts out of the upload |
 | `upload-artifact` | `true` | Upload the report directory |
 | `artifact-name` | `agentsec-reports` | Artifact name |
 | `baseline-report` | empty | Path to an earlier `report.json` to compare this run against. See [Pull-request and scheduled regression testing](#pull-request-and-scheduled-regression-testing) |
