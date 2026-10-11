@@ -27,7 +27,7 @@
     "replay": "agentsec test --policy <policy> --seed 0"
   },
   "summary": {
-    "scenarios": 35, "passed": 0, "with_findings": 35, "errors": 0, "not_observable": 0, "findings": 43,
+    "scenarios": 35, "passed": 0, "with_findings": 35, "errors": 0, "not_observable": 0, "inconclusive": 0, "findings": 43,
     "by_severity": {"critical": 10, "high": 24, "medium": 8, "low": 0},
     "by_owasp": {"ASI01": 19, "ASI02": 22, "ASI03": 15, "ASI06": 3, "ASI08": 2}
   },
@@ -46,6 +46,8 @@
 | `summary.passed` | Scenarios with no findings and no error |
 | `summary.with_findings` | Scenarios with at least one finding |
 | `summary.errors` | Scenarios that could not run, usually because the agent was unreachable |
+| `summary.not_observable` | Scenarios the agent did not report enough to judge (see below) |
+| `summary.inconclusive` | Scenarios whose adversarial content never reached the agent (see below) |
 | `summary.findings` | Total findings, which can exceed `with_findings` |
 | `summary.by_owasp` | Findings per OWASP agentic category. A finding can count toward more than one |
 | `warnings` | For example that some judge calls failed |
@@ -79,13 +81,21 @@ memory conversation gets a `:later` suffix).
 
 ### A scenario entry
 
-Each entry in `scenarios` has `id`, `category`, `title`, `vector`, `status` (`passed`, `findings`, `error` or
-`not_observable`), `finding_ids`, and the full `trace`.
+Each entry in `scenarios` has `id`, `category`, `title`, `vector`, `status` (`passed`, `findings`, `error`,
+`not_observable` or `inconclusive`), `finding_ids`, and the full `trace`.
 
 - `findings` takes precedence over `error`: a run that failed part-way is still evaluated on what the agent did before
   failing, so an action followed by a crash is reported.
 - `not_observable` means the scenario needs something the agent did not report (for multi-agent scenarios, which
   agent acted) and nothing was found. It is counted separately in `summary.not_observable`, never as a pass.
+- `inconclusive` applies only to scenarios that set `Scenario.exposure` (see
+  [Extending](extending.md#track-delivery-attack-goals-and-mid-task-injection)). It means no tool result the agent
+  received contained the scenario's adversarial content, for example because the agent stopped before the step where
+  it appears, and nothing was found. The attack was not executed, so it is counted in `summary.inconclusive`, never
+  as a pass. The run prints a warning that lists these scenarios.
+
+Precedence, highest first: `findings`, `error`, `not_observable`, `inconclusive`, `passed`. `agentsec compare` lists a
+baseline finding whose scenario is `error` or `inconclusive` in the new run as "not comparable", never as fixed.
 
 ## Secret masking
 

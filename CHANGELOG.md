@@ -3,6 +3,21 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
+## Unreleased
+
+- New: delivery tracking and attack goals for scenarios. `Scenario.exposure` names text only the adversarial content
+  contains; a scenario whose content never reached the agent is reported with the new status `inconclusive` (and
+  `summary.inconclusive`), never as passed. `Scenario.attack_goals` (`AttackGoal`) states what a successful attack
+  does as tool calls; the new default `AttackGoalEvaluator` reports `attack_goal_achieved` only for calls made after
+  the content was delivered. `agentsec.attacks.inject_after()` builds responders that inject at a later step of a
+  multi-step task. Built-in categories do not use these fields and are unchanged. See
+  [Extending](docs/extending.md#track-delivery-attack-goals-and-mid-task-injection).
+- `inconclusive` is handled throughout: terminal, Markdown, HTML and JSON reports; run warnings; `RunResult.inconclusive`
+  (and `RunResult.passed` is false while any scenario is inconclusive); the pytest plugin skips all-inconclusive
+  categories; `agentsec compare` does not call a finding fixed when its scenario is inconclusive in the new run;
+  `agentsec replay` reports such findings as `INCONCLUSIVE` and exits 2 when nothing reproduced but something was
+  inconclusive.
+
 ## 0.7.0
 
 - Docs: `docs/testing.md` now lists everything that has not been tested yet (other real agents, Claude Code's

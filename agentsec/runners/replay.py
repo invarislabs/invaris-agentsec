@@ -25,7 +25,7 @@ class ReplayOutcome:
     title: str
     severity: str
     scenario_id: str
-    status: str  # reproduced | not_reproduced | error
+    status: str  # reproduced | not_reproduced | inconclusive | error
 
 
 @dataclass
@@ -44,6 +44,12 @@ class ReplayResult:
     @property
     def errors(self) -> List[ReplayOutcome]:
         return [o for o in self.outcomes if o.status == "error"]
+
+    @property
+    def inconclusive(self) -> List[ReplayOutcome]:
+        """Findings whose scenario was rerun but whose adversarial content never reached the agent
+        this time, so the rerun says nothing about whether the finding still reproduces."""
+        return [o for o in self.outcomes if o.status == "inconclusive"]
 
 
 def load_report(path: str) -> Dict[str, Any]:
@@ -93,11 +99,14 @@ def replay(report: Dict[str, Any], policy: Policy, adapter: AgentAdapter,
     suite = run_suite(policy, adapter, seed=seed, only=scenario_set, categories=categories, judge=judge)
 
     errored = {r.scenario.id for r in suite.results if r.status == "error"}
+    untested = {r.scenario.id for r in suite.results if r.status == "inconclusive"}
     now = {f.id: f for f in suite.findings}
     outcomes = []
     for t in targets:
         if t["scenario_id"] in errored:
             status = "error"
+        elif t["scenario_id"] in untested:
+            status = "inconclusive"
         else:
             status = "reproduced" if t["id"] in now else "not_reproduced"
         outcomes.append(ReplayOutcome(t["id"], t["title"], t["severity"], t["scenario_id"], status))

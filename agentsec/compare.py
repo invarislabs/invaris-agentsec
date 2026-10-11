@@ -71,8 +71,8 @@ def compare(base: Dict[str, Any], head: Dict[str, Any]) -> Comparison:
         if fid in h_f:
             continue
         sc = h_sc.get(f["scenario_id"])
-        if sc is None or sc.get("status") == "error":
-            out.not_comparable.append(f)   # cannot claim it was fixed
+        if sc is None or sc.get("status") in ("error", "inconclusive"):
+            out.not_comparable.append(f)   # cannot claim it was fixed: the attack did not run
         else:
             out.fixed.append(f)
     return out
@@ -97,7 +97,7 @@ def render(c: Comparison) -> str:
     block("Fixed", c.fixed, "-")
     block("Severity decreased", c.better, "v")
     block("Unchanged", c.unchanged, "=")
-    block("Not comparable (scenario missing or errored in the new run)", c.not_comparable, "?")
+    block("Not comparable (scenario missing, errored or inconclusive in the new run)", c.not_comparable, "?")
     lines.append("%d new, %d worse, %d fixed, %d better, %d unchanged" % (
         len(c.new), len(c.worse), len(c.fixed), len(c.better), len(c.unchanged)))
     return "\n".join(lines)

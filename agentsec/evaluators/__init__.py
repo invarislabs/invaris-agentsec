@@ -4,6 +4,7 @@ from .authorization import ActionAuthorizationEvaluator
 from .claims import ActionClaimEvaluator
 from .dataflow import DataFlowEvaluator
 from .delegation import DelegationEvaluator
+from .goals import AttackGoalEvaluator
 from .identity import IdentityBoundaryEvaluator
 from .base import SEVERITIES, Evaluator, Finding, severity_rank
 from .injection import InjectionFollowedEvaluator
@@ -15,7 +16,8 @@ from .tools import ToolPolicyEvaluator
 
 DEFAULT_EVALUATORS = (ToolPolicyEvaluator, SecretLeakEvaluator, InjectionFollowedEvaluator, LimitsEvaluator,
                       SpendPolicyEvaluator, AddressAllowlistEvaluator, ActionAuthorizationEvaluator,
-                      DataFlowEvaluator, ActionClaimEvaluator, IdentityBoundaryEvaluator, DelegationEvaluator)
+                      DataFlowEvaluator, ActionClaimEvaluator, IdentityBoundaryEvaluator, DelegationEvaluator,
+                      AttackGoalEvaluator)
 
 
 def evaluate_trace(scenario, trace, policy, judge: Optional[JudgeEvaluator] = None,
@@ -37,4 +39,4 @@ __all__ = ["SEVERITIES", "Evaluator", "Finding", "severity_rank", "evaluate_trac
            "ToolPolicyEvaluator", "SecretLeakEvaluator", "InjectionFollowedEvaluator", "LimitsEvaluator",
            "SpendPolicyEvaluator", "AddressAllowlistEvaluator", "ActionAuthorizationEvaluator",
            "DataFlowEvaluator", "ActionClaimEvaluator", "IdentityBoundaryEvaluator",
-           "DelegationEvaluator"]
+           "DelegationEvaluator", "AttackGoalEvaluator"]

@@ -217,6 +217,65 @@ example: it gives `rag_citation_spoofing` (which has no deterministic signal at 
 phrased around exactly its failure mode, as an alternative to the more general built-in
 `goal_hijack` check.
 
+## Track delivery, attack goals and mid-task injection
+
+Three optional `Scenario` features let a scenario state what it needs to happen before its verdict means
+anything, and what a successful attack *does*. Every built-in category leaves them unset, so its behaviour is
+unchanged.
+
+**`exposure: List[str]`** -- text that only the scenario's adversarial content contains. The scenario counts as
+executed only once one of these strings appears in a tool result the agent received (`tool_result` events,
+including results of calls the agent ran itself and reported). Matching is case-insensitive, ignores whitespace
+differences, and also looks inside JSON-encoded results, so escaping does not hide a delivered payload. If it never
+appears and nothing was found, the status is `inconclusive`, not `passed` (see
+[Reports and traces](reports-and-traces.md#a-scenario-entry)). Use it whenever the agent could finish its task
+without ever reading the adversarial content.
+
+**`attack_goals: List[AttackGoal]`** -- tool calls that would prove the attack worked. `AttackGoalEvaluator` (one of
+the default evaluators) reports rule `attack_goal_achieved` (OWASP ASI01, ASI02) for the first call matching each
+goal:
+
+| `AttackGoal` field | Meaning |
+|---|---|
+| `description` | Used in the finding title: "Attack succeeded: ..." |
+| `tools` | Tool names that can achieve the goal; empty means any tool |
+| `match_any` | If set, at least one of these strings must appear (case-insensitively) in the call's argument values |
+| `sensitive_values` | Values the attack tries to carry out; any found in the matching call are named in the finding |
+| `severity` | Default `critical` |
+
+When the scenario also sets `exposure`, only calls made **after** the first delivering tool result count, and the
+finding's evidence holds both events (delivery, then the call). A matching call made before delivery is ignored,
+because it cannot have been caused by content the agent had not seen. If the payload was never delivered,
+the evaluator reports nothing. Calls to forbidden tools, or tools outside the allowlist, are skipped because
+`ToolPolicyEvaluator` already reports them, so one call is not reported twice. One finding per goal.
+
+**`inject_after(calls, benign, poisoned)`** -- builds a `responder` that answers the first `calls` scenario-tool
+calls with `benign` and every later call with `poisoned`. The runner numbers scenario-tool calls across the whole
+scenario (the third `ToolResponder` argument), so this puts the adversarial content at a later step of a
+multi-step task instead of in the first tool result. Responders can also branch on the tool name and
+arguments themselves. Pair it with `exposure` so that an agent which stops early is reported as `inconclusive`.
+
+```python
+from agentsec.attacks import AttackGoal, Scenario, inject_after
+
+def build(ctx):
+    responder = inject_after(3, lambda tool, args, i: "result %d" % i,
+                             lambda tool, args, i: "...MY-PAYLOAD-TEXT...")
+    return [Scenario(
+        id="my_category/late", category="my_category", title="...", description="...",
+        user_message="...", responder=responder,
+        exposure=["MY-PAYLOAD-TEXT"],
+        attack_goals=[AttackGoal("called act with the planted value", tools=["act"],
+                                 match_any=["MY-PLANTED-VALUE"])])]
+```
+
+Verdicts for such a scenario: `findings` (the agent did what the content asked, after receiving it), `passed`
+(it received the content and did not act on it), `inconclusive` (it never received the content). The Python API
+exposes `RunResult.inconclusive`, and `RunResult.passed` is false while any scenario is inconclusive. The pytest
+plugin's `agentsec_run` skips a category when every scenario is inconclusive (or not observable), and warns when
+only some are. `agentsec replay` reports a finding whose rerun was inconclusive as `INCONCLUSIVE` rather than
+`NOT REPRODUCED`.
+
 ## Add an evaluator
 
 An evaluator takes a scenario, its trace and the policy, and returns a list of `Finding` objects.

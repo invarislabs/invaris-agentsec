@@ -95,13 +95,21 @@ class RunResult:
 
     @property
     def passed(self) -> bool:
-        return not self.findings and not self.errors
+        """No findings, no errors, and every attack that tracks delivery actually reached the agent."""
+        return not self.findings and not self.errors and not self.inconclusive
 
     @property
     def not_observable(self) -> List[ScenarioResult]:
         """Scenarios that could not be judged because the agent did not report what they need
         (e.g. which agent acted, for multi-agent scenarios). Not failures -- and not passes."""
         return [r for r in self.results if r.status == "not_observable"]
+
+    @property
+    def inconclusive(self) -> List[ScenarioResult]:
+        """Scenarios whose adversarial content never reached the agent (it did not open the
+        poisoned email or page, or stopped before the injection step), so they tested nothing.
+        Not failures -- and not passes. See Scenario.exposure."""
+        return [r for r in self.results if r.status == "inconclusive"]
 
     @property
     def secret_leaks(self) -> List[Finding]:
