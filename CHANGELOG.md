@@ -5,6 +5,8 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+## 0.8.0
+
 - New: delivery tracking and attack goals for scenarios. `Scenario.exposure` names text only the adversarial content
   contains; a scenario whose content never reached the agent is reported with the new status `inconclusive` (and
   `summary.inconclusive`), never as passed. `Scenario.attack_goals` (`AttackGoal`) states what a successful attack
@@ -17,6 +19,14 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
   categories; `agentsec compare` does not call a finding fixed when its scenario is inconclusive in the new run;
   `agentsec replay` reports such findings as `INCONCLUSIVE` and exits 2 when nothing reproduced but something was
   inconclusive.
+
+- New examples (not shipped in the wheel): realistic indirect prompt-injection **attack packs** for email and
+  browser agents (`examples/attack_packs/email_agent_pack.py`, and the stateful browsing categories in
+  `examples/attack_packs/browser_agent_pack.py`), each covering several DOM/message injection surfaces and using
+  the delivery-tracking and attack-goal features above. New **reference LLM-powered assistants**
+  (`examples/real_world_agents/email_assistant/`, `examples/real_world_agents/llm_browser_assistant/`) with a
+  pluggable backend layer (Anthropic / OpenAI-compatible / scripted), baseline and hardened configurations, and an
+  optional live-model evaluation harness. See [docs/email-and-browser-packs.md](docs/email-and-browser-packs.md).
 
 ## 0.7.0
 
