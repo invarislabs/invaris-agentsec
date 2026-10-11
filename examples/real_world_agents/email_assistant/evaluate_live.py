@@ -83,7 +83,7 @@ def run_once(scenario, backend, hardened):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        policy = parse_policy(POLICY_TEXT.replace("http://127.0.0.1:8040/agent",
+        policy = parse_policy(POLICY_TEXT.replace("http://127.0.0.1:8060/agent",
                                                   "http://127.0.0.1:%d/agent" % port))
         trace = run_scenario(scenario, policy, HTTPAgentAdapter(policy.agent))
         result = ScenarioResult(scenario, trace, evaluate_trace(scenario, trace, policy))

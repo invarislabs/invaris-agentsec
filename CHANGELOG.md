@@ -5,6 +5,17 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+- Fixed: the `email_assistant` reference agent defaulted to port 8040, which `multi_agent_team`
+  already uses, so the two could not run side by side. It now defaults to 8060 (its policies, demo,
+  live harness, README and tests updated to match). Examples are not shipped in the wheel, so this
+  does not affect the published package.
+- Docs: repository-wide accuracy pass. The README's category list said eight categories while the
+  same page said thirteen; the test count, reference-agent count and attack-pack count were stale;
+  `agentsec replay`'s `INCONCLUSIVE` outcome and the `exposure` / `attack_goals` / `inconclusive`
+  model were undocumented in the README; `docs/README.md` was missing an index entry for
+  `docs/email-and-browser-packs.md`; and `docs/agent-contract.md`'s "147 scenarios" read as
+  per-agent when it is the total across three agents (50 + 48 + 49).
+
 ## 0.8.0
 
 - New: delivery tracking and attack goals for scenarios. `Scenario.exposure` names text only the adversarial content

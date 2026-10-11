@@ -21,7 +21,8 @@ full list. Planned work is in [Future Work](../README.md#future-work) and is not
 | [Multi-agent testing](multi-agent.md) | Declare agent roles, report which agent acted, and test delegation and privilege escalation |
 | [GitHub Actions](github-actions.md) | Use the packaged action in CI |
 | [Extending](extending.md) | Add a scenario category, an evaluator or an adapter |
-| [Domain attack packs](domain-attack-packs.md) | See all five reference attack packs: coding-agent, browser-agent, RAG, customer-support and on-chain agents |
+| [Domain attack packs](domain-attack-packs.md) | See the reference attack packs for coding-agent, browser-agent, RAG, customer-support and on-chain agents |
+| [Email and browser packs](email-and-browser-packs.md) | Run the email and browser injection packs, and their LLM-powered reference assistants (baseline vs hardened) |
 | [Blog](blogs.md) | Posts from the people building AgentSec |
 
 ## What AgentSec does in one paragraph
@@ -37,7 +38,9 @@ rules cannot see, and its findings are labelled as model-assisted.
 
 ## Current status
 
-- 13 attack categories, 47 scenarios, all deterministic and replayable with a seed (categories that need `tool_effects` or `agent_roles` build scenarios only when the policy declares them).
+- 13 attack categories and up to 47 scenarios, all deterministic and replayable with a seed (categories that need `tool_effects` or `agent_roles` build scenarios only when the policy declares them).
+- Delivery tracking and observable attack goals: `Scenario.exposure` makes a scenario whose adversarial content never reached the agent report as `inconclusive` rather than passed, `Scenario.attack_goals` states what a successful attack does as a tool call (counted only after delivery), and `inject_after()` injects at a later step of a multi-step task.
+- Email and browser attack packs (five message and six DOM injection surfaces) with two LLM-powered reference assistants, baseline and hardened configurations, and an optional live-model harness -- see [Email and browser packs](email-and-browser-packs.md).
 - Authority checks beyond tool allowlists: task-scoped authorization, data-flow tracking across calls, claim-versus-trace comparison, identity and session boundaries, and multi-agent delegation with authority attenuation.
 - Terminal, JSON, HTML, Markdown and SARIF reports, with findings tagged to OWASP agentic categories.
 - `agentsec replay` to check whether findings still reproduce.
@@ -49,6 +52,6 @@ rules cannot see, and its findings are labelled as model-assisted.
 - An opt-in model-assisted judge, never critical and always labelled.
 - GitHub Actions annotations and job summary. A packaged, reusable action (`action.yml`) is included.
 - Adapters: OpenAI-compatible HTTP (optionally streaming), an in-process `CallableAdapter`, a `LangChainAdapter` for LangChain and LangGraph agents, and an in-process `ToolHost` for frameworks that run their own tool loop (exercised with LangChain, LangGraph, CrewAI, AutoGen, the OpenAI Agents SDK, Google ADK and smolagents).
-- Six deliberately vulnerable reference agents, each with a hardened variant, all offline: a rule-based one, a RAG-backed one that owns its documents and runs tools server-side, three modeled on real daily-use AI agent products (coding, customer-support and browser assistants), each paired with a matching domain attack pack, and a planner/researcher/executor multi-agent team.
-- 427 automated tests (426 pass and 1 is skipped without the optional LangGraph extra; with it installed, 431 run and pass).
+- Eight reference agents, each with a hardened variant. Six are deterministic and rule-based, all offline: a rule-based one, a RAG-backed one that owns its documents and runs tools server-side, three modeled on real daily-use AI agent products (coding, customer-support and browser assistants), each paired with a matching domain attack pack, and a planner/researcher/executor multi-agent team. Two more are LLM-powered (email and browser), where every tool decision comes from a configurable model.
+- 592 automated tests: 555 pass and 37 are skipped by default (36 live-model tests, which need `AGENTSEC_LLM_*` plus `AGENTSEC_RUN_LIVE_LLM=1`, and 1 LangGraph integration test, which needs the optional LangGraph extra).
 - Benchmarks with checked-in results: the same scenarios across seven agent frameworks, three memory backends (including mem0 and LangGraph's store), and a real Claude Code CLI session over MCP -- see [Testing](testing.md#what-has-been-tested-against-real-agents-and-frameworks).

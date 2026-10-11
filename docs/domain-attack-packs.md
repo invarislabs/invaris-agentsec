@@ -8,7 +8,7 @@ modes. Nothing about this needs a change to AgentSec itself: `agentsec/attacks/p
 loads a pack's `CATEGORIES`, and (as of this doc) its optional `EVALUATORS`, as ordinary Python
 imports. See [Extending](extending.md#write-an-attack-pack) for the mechanics.
 
-This page is the reference implementation for all five domains this project set out to cover:
+This page is the reference implementation for the five domains this project originally set out to cover:
 coding agents, browser agents, RAG-backed agents, customer-support agents, and financial/on-chain
 agents. Each one reuses the same two extension points -- `CATEGORIES` and the optional
 `EVALUATORS` -- without any change to AgentSec's core.
@@ -146,6 +146,24 @@ pack's own scenario-specific evaluators below.
   `send_transaction` call over a cap -- the policy's own `spend_limits.max_transaction` when the
   policy declares one for `send_transaction`, else a fixed reference cap, so the category still
   fires against a policy that hasn't adopted `spend_limits` yet.
+
+## Built: email-agent attacks, and a stateful browser session
+
+Two packs go further than the five above: instead of a fixed-string tool result, they simulate a
+stateful environment (a mailbox, a browsing session) and state the observable outcome as an
+`attack_goal`, so the finding names the action the agent took rather than only the text it read.
+They also come with LLM-powered reference assistants and baseline/hardened configurations:
+
+- `examples/attack_packs/email_agent_pack.py` -- a simulated mailbox (`read_inbox`, `open_email`,
+  `send_email`, `forward_email`, `delete_email`) with injections on five surfaces: body, signature,
+  quoted thread, HTML part and attachment text.
+- the stateful categories appended to `examples/attack_packs/browser_agent_pack.py` -- a simulated
+  browsing session (`read_page`, `navigate`, `fill_form`, `submit_form`, `place_order`) with
+  injections on six DOM surfaces: visible text, HTML comments, metadata, CSS-hidden text, image alt
+  attributes and user reviews.
+
+See [Email and browser packs](email-and-browser-packs.md) for the scenario tables, the CLI
+commands, the verdict semantics and the limitations.
 
 ## Building the next one
 

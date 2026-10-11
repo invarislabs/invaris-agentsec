@@ -53,7 +53,7 @@ non-model stand-in.
 ## Starting the assistant
 
 ```bash
-# baseline, port 8040, model resolved from the environment
+# baseline, port 8060, model resolved from the environment
 python examples/real_world_agents/email_assistant/server.py
 
 # hardened configuration

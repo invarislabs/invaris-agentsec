@@ -165,7 +165,7 @@ None of the incidents above required a nation-state attacker or a novel research
 A dealership customer typing a sentence, a message posted in a Slack channel, an email nobody
 opened, a tool description nobody read, and a coding agent told "don't touch this" were enough.
 Every one of them is a variant of a small number of well-understood vulnerability classes -- the
-same eight categories, plus MCP supply-chain checks, that AgentSec runs as reproducible,
+same thirteen categories, plus MCP supply-chain checks, that AgentSec runs as reproducible,
 deterministic, replayable test scenarios against any agent you point it at.
 
 The gap this project exists to close isn't "AI is unsafe." It's that the decision about which
