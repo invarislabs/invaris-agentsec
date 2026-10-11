@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 427 tests should pass in under a minute (one, the LangGraph integration test, is skipped unless the optional LangGraph extra is installed). They need no network access or API keys. The end-to-end tests start the reference agent
+All 555 tests should pass in under a minute. 37 more are skipped by default: 36 live-model tests (they need a real backend -- `AGENTSEC_LLM_*` plus `AGENTSEC_RUN_LIVE_LLM=1`) and the LangGraph integration test (it needs the optional LangGraph extra). They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
