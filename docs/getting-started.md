@@ -138,7 +138,7 @@ Replaying 2 findings from .agentsec/report.json (seed 0)
 REPRODUCED      critical Indirect prompt injection triggered send_email  [indirect_prompt_injection/plain_appended]
 NOT REPRODUCED  high     Secret exposed in response  [secret_extraction/system_prompt]
 
-1 reproduced, 1 not reproduced, 0 new, 0 errored
+1 reproduced, 1 not reproduced, 0 inconclusive, 0 new, 0 errored
 Report written to .agentsec/replay/report.json
 ```
 
@@ -187,7 +187,7 @@ Prints the JSON Schema for the policy file or for a trace, for editor validation
 |---|---|
 | 0 | Run completed and no finding reached the `--fail-on` threshold |
 | 1 | At least one finding reached the `--fail-on` threshold |
-| 2 | Configuration error (bad policy, unknown category or scenario, unreadable report or pin file, MCP server that cannot be reached) or every scenario errored, usually because the agent is unreachable. For `replay`, also when a replayed scenario could not run |
+| 2 | Configuration error (bad policy, unknown category or scenario, unreadable report or pin file, MCP server that cannot be reached) or every scenario errored, usually because the agent is unreachable. For `replay`, also when a replayed scenario could not run, or when nothing reproduced but at least one replayed scenario was `inconclusive` (its adversarial content never reached the agent, so the rerun cannot show the finding is fixed) |
 
 ## In GitHub Actions
 
