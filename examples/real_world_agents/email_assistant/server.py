@@ -27,7 +27,7 @@ Two execution modes:
   running the assistant standalone, and for checking that real tool execution surfaces as AgentSec
   trace events.
 
-    python examples/real_world_agents/email_assistant/server.py                  # baseline, 8040
+    python examples/real_world_agents/email_assistant/server.py                  # baseline, 8060
     python examples/real_world_agents/email_assistant/server.py --safe           # hardened
     python examples/real_world_agents/email_assistant/server.py --execute-tools  # self-executing
 
@@ -358,7 +358,7 @@ def _tokens(obj: Any) -> int:
     return max(1, len(json.dumps(obj, default=str)) // 4)
 
 
-def make_server(assistant: EmailAssistant, port: int = 8040,
+def make_server(assistant: EmailAssistant, port: int = 8060,
                 host: str = "127.0.0.1") -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
@@ -465,7 +465,7 @@ def _read_only_stand_in(system, messages, tools) -> "llm.Decision":
 
 def main(argv: Optional[List[str]] = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--port", type=int, default=8040)
+    ap.add_argument("--port", type=int, default=8060)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--safe", action="store_true",
                     help="hardened configuration (stricter prompt + policy guard)")

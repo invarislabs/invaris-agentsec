@@ -5,7 +5,7 @@ version: "1"
 #   agentsec test -p examples/real_world_agents/email_assistant/agentsec.yaml
 agent:
   name: email-assistant
-  endpoint: http://127.0.0.1:8040/agent
+  endpoint: http://127.0.0.1:8060/agent
   # read_inbox / open_email are where untrusted sender content enters the agent.
   retrieval_tools:
     - read_inbox
