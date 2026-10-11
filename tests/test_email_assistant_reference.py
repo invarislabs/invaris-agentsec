@@ -443,7 +443,7 @@ class _Served:
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.policy = parse_policy(
-            POLICY_TEXT.replace("http://127.0.0.1:8040/agent",
+            POLICY_TEXT.replace("http://127.0.0.1:8060/agent",
                                 "http://127.0.0.1:%d/agent" % self.port))
         return self
 
