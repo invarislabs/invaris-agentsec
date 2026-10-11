@@ -132,20 +132,25 @@ def _cmd_replay(args: argparse.Namespace) -> int:
         len(result.outcomes), "" if len(result.outcomes) == 1 else "s", args.report, result.seed))
     if result.policy_changed:
         print("note: the policy file differs from the one used for the report")
-    label = {"reproduced": "REPRODUCED", "not_reproduced": "NOT REPRODUCED", "error": "ERROR"}
+    label = {"reproduced": "REPRODUCED", "not_reproduced": "NOT REPRODUCED", "inconclusive": "INCONCLUSIVE",
+             "error": "ERROR"}
     for o in result.outcomes:
         print("%-15s %-8s %s  [%s]" % (label[o.status], o.severity, o.title, o.scenario_id))
     for f in result.new_findings:
         print("%-15s %-8s %s  [%s]" % ("NEW", f.severity, f.title, f.scenario_id))
-    print("\n%d reproduced, %d not reproduced, %d new, %d errored" % (
+    print("\n%d reproduced, %d not reproduced, %d inconclusive, %d new, %d errored" % (
         len(result.reproduced), sum(o.status == "not_reproduced" for o in result.outcomes),
-        len(result.new_findings), len(result.errors)))
+        len(result.inconclusive), len(result.new_findings), len(result.errors)))
     if result.suite is not None:
         _, paths = write_reports(result.suite, args.out, ["json"], policy_path=args.policy)
         print("Report written to %s" % paths[0])
     if result.errors:
         return EXIT_ERROR
-    return EXIT_FINDINGS if (result.reproduced or result.new_findings) else EXIT_OK
+    if result.reproduced or result.new_findings:
+        return EXIT_FINDINGS
+    if result.inconclusive:
+        return EXIT_ERROR  # could not verify: never report an unexecuted rerun as fixed
+    return EXIT_OK
 
 
 def _cmd_compare(args: argparse.Namespace) -> int:

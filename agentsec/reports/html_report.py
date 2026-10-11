@@ -25,6 +25,7 @@ h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:32px 0 12px}
 border:1px solid currentColor;text-transform:uppercase;letter-spacing:.02em}
 .critical{color:var(--critical)}.high{color:var(--high)}.medium{color:var(--medium)}.low{color:var(--low)}
 .passed{color:var(--ok)}.findings{color:var(--high)}.error{color:var(--err)}
+.inconclusive,.not_observable{color:var(--muted)}
 details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:8px 0;padding:0}
 summary{cursor:pointer;padding:10px 14px;list-style:none}summary::-webkit-details-marker{display:none}
 summary::before{content:"\\25B8";color:var(--muted);margin-right:8px;display:inline-block}

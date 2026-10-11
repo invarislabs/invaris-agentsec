@@ -29,6 +29,9 @@ def render_terminal(suite: SuiteResult, report_path: Union[str, Sequence[str]] =
     blind = sum(r.status == "not_observable" for r in suite.results)
     if blind:
         lines.append("%d not observable (the agent did not report what these scenarios need to judge)" % blind)
+    untested = sum(r.status == "inconclusive" for r in suite.results)
+    if untested:
+        lines.append("%d inconclusive (the attack never reached the agent; not counted as passed)" % untested)
     lines.append("")
 
     sensitive = suite.policy.resolved_secrets() + [v for f in findings for v in f.sensitive]
