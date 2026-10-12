@@ -34,9 +34,19 @@ overwritten by a newer `agentsec test`, the page offers to show the new run.
 **Overview** of an agent test:
 
 - A plain verdict ("43 findings in 35 of 35 scenarios", "No scenario could run") and the counts behind it:
-  scenarios, passed, with findings, errors, not observable.
+  scenarios, passed, with findings, errors, not observable, inconclusive. A run with inconclusive scenarios is
+  never described as "all passed": inconclusive means the adversarial content never reached the agent, so
+  nothing was measured.
 - **Scenarios by attack category.** One square per scenario, coloured by its worst finding, or marked passed,
-  errored or not observable. Select a square to open that scenario's trace.
+  errored, not observable or inconclusive. Categories from attack packs are labelled. Select a square to open
+  that scenario's trace.
+- **What this run measured.** Tested scenarios (attacked and judged), findings and passes among them, and the
+  inconclusive, errored and not-observable ones, with rates over tested scenarios only; and who made the
+  agent's decisions when the agent reports it (`x_agentsec.agent`), with a "Scripted stand-in" label for a
+  scripted backend.
+- **Attacks that reached their goal.** For attack packs that declare `attack_goals`: where the payload was
+  delivered (which tool result, after how many clean ones, which shows a mid-task injection) and which later
+  tool call achieved the goal.
 - **OWASP agentic categories.** Findings per ASI01-ASI10, all ten listed so gaps are visible. The mapping is
   Invaris' closest-fit judgement, as in every other report format.
 - **How the attack arrived.** Scenarios with findings by vector: the user's message, a retrieved document, or
@@ -60,7 +70,10 @@ agentsec test --policy agentsec.yaml --seed 0 -s <scenario id>
 their arguments, simulated tool results, limits and errors. Events cited as evidence are highlighted and
 linked to their findings. Memory scenarios are split into their first and follow-up conversations
 (`meta.phase`); multi-agent traces show which agent acted and who delegated to it (`meta.actor`,
-`meta.delegated_by`); over-budget calls and calls the agent executed itself are labelled.
+`meta.delegated_by`); over-budget calls and calls the agent executed itself are labelled. For attack-pack
+scenarios the trace marks where the payload was delivered and the call that reached an attack goal, lists each
+declared goal as achieved, not achieved or not tested, and explains why an inconclusive scenario measured
+nothing.
 
 **Policy.** The policy as it was run, from the report: agent settings, allowed tools with their declared
 `tool_effects`, forbidden actions, limits, spend limits, address allowlist, agent roles, categories, attack
@@ -71,8 +84,13 @@ them, and the findings against each.
 
 **Compare runs.** Pick a baseline and a current report. The comparison is `agentsec compare`'s own logic:
 findings are matched by id and listed as new, severity increased, fixed, severity decreased, unchanged, or not
-comparable (the scenario is missing or errored in the current run, so it cannot count as fixed), with the same
-warnings about differing seeds, policies and scenario sets.
+comparable (the scenario is missing, errored, inconclusive or not observable in the current run, so it cannot
+count as fixed,
+and the reason is shown), with the same warnings about differing seeds, policies and scenario sets. **Scenario
+verdicts** shows what each run measured side by side and every scenario whose verdict changed, which is how to
+compare a baseline and a hardened build: hardening that only stopped the agent from reading the poisoned content
+shows up as "not tested", not as a fix. The CLI, this page and the hosted dashboard use the same rules
+(`agentsec.verdicts`).
 
 `agentsec test` overwrites `report.json` in its output directory on every run, so keep a run you want to
 compare against in its own directory:

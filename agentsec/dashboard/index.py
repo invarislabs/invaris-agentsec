@@ -13,6 +13,8 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..verdicts import inconclusive_count
+
 REPORT_FILENAMES = ("report.json", "mcp-report.json")
 
 # Directories that never hold AgentSec reports but can be very large.
@@ -89,6 +91,8 @@ def summarize_entry(data: Dict[str, Any]) -> Dict[str, Any]:
         "with_findings": summary.get("with_findings"),
         "errors": summary.get("errors"),
         "not_observable": summary.get("not_observable"),
+        # 0 for reports written before inconclusive existed; None for MCP scans
+        "inconclusive": inconclusive_count(data) if kind == "test" else None,
         "findings": summary.get("findings", len(data.get("findings", []))),
         "by_severity": {k: _count(by_sev.get(k, 0)) for k in ("critical", "high", "medium", "low")},
     }

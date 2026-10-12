@@ -90,6 +90,7 @@ h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
 .strip>span{display:block;height:100%;border-radius:2px;min-width:3px}
 .strip .s-none{background:var(--ok-soft);flex:1}
 .strip .s-err{background:var(--err-soft);flex:1}
+.strip .s-inc{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--medium) 45%,transparent) 0 2px,transparent 2px 5px);flex:1}
 .strip-legend{display:flex;gap:10px;font-size:12px;color:var(--ink-2);margin-top:5px;flex-wrap:wrap}
 .strip-legend b{font-weight:600;color:var(--ink)}
 .bg-critical{background:var(--critical)}.bg-high{background:var(--high)}.bg-medium{background:var(--medium)}.bg-low{background:var(--low)}
@@ -128,6 +129,7 @@ select{padding-right:26px;max-width:230px}
 .status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;white-space:nowrap}
 .status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .status.passed{--c:var(--ok)}.status.findings{--c:var(--high)}.status.error{--c:var(--err)}.status.not_observable{--c:var(--nobs)}
+.status.inconclusive::before{background:transparent;box-shadow:inset 0 0 0 2px var(--medium)}
 .tag{display:inline-block;background:var(--sunken);color:var(--ink-2);border-radius:5px;padding:1px 7px;font-size:12px;white-space:nowrap}
 .tag.accent{background:var(--accent-soft);color:var(--accent)}
 .tag.warn{background:color-mix(in srgb,var(--medium) 18%,transparent);color:var(--ink)}
@@ -163,6 +165,7 @@ select{padding-right:26px;max-width:230px}
 .cell.passed{background:var(--ok-soft);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ok) 55%,transparent)}
 .cell.error{background:repeating-linear-gradient(135deg,var(--err) 0 2px,var(--err-soft) 2px 5px)}
 .cell.not_observable{background:transparent;box-shadow:inset 0 0 0 1.5px var(--nobs);opacity:.8}
+.cell.inconclusive{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--medium) 40%,transparent) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1.5px var(--medium)}
 .cell.critical{--c:var(--critical)}.cell.high{--c:var(--high)}.cell.medium{--c:var(--medium)}.cell.low{--c:var(--low)}
 .cell:hover{transform:scale(1.15);text-decoration:none}
 .cell:focus-visible{outline-offset:1px}
@@ -311,3 +314,12 @@ tbody tr.link:hover td{background:var(--hover)}
 @media (forced-colors:active){
   .cell,.sev::before,.status::before{forced-color-adjust:none;border:1px solid CanvasText}
 }
+
+/* ---------- attack timelines (AgentSec 0.8.0 attack goals) ---------- */
+.timeline{margin:0;padding:0 0 0 20px;font-size:13px;display:grid;gap:4px}
+.timeline+.timeline{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.timeline li::marker{color:var(--ink-3)}
+.tag.mark-delivered{background:color-mix(in srgb,var(--medium) 22%,transparent);color:var(--ink)}
+.tag.mark-goal{background:color-mix(in srgb,var(--critical) 14%,transparent);color:var(--ink)}
+td.change{white-space:nowrap;font-size:13px}
+td.change.bad{color:var(--critical)}td.change.good{color:var(--ok)}td.change.warn{color:var(--ink);font-weight:500}

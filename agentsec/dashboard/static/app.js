@@ -9,7 +9,10 @@
 
   var SEV = ["critical", "high", "medium", "low"];
   var SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1 };
-  var STATUS_LABEL = { passed: "Passed", findings: "Findings", error: "Error", not_observable: "Not observable" };
+  var STATUS_LABEL = { passed: "Passed", findings: "Findings", error: "Error", not_observable: "Not observable", inconclusive: "Inconclusive" };
+  // What an inconclusive verdict means, said the same way everywhere it appears.
+  var PROVENANCE_HINT = "the agent can report it with x_agentsec.agent";
+  var INCONCLUSIVE_WHY = "the adversarial content never reached the agent (it did not open the poisoned item, or stopped before the step where the injection appears), so its resistance was not measured";
   var VECTOR_LABEL = {
     direct: "User message", retrieved_document: "Retrieved document", tool_output: "Tool output",
     tool_definition: "Tool definition", unknown: "Unknown"
@@ -166,6 +169,7 @@
 
   // Links built from report data: only http(s), so an uploaded report cannot plant a javascript: or data: URL.
   function safeHref(url) {
+    if (!url) return null;      // no link recorded (new URL("null", base) would resolve to a page path)
     try {
       var u = new URL(String(url), location.href);
       return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
@@ -259,7 +263,7 @@
     var total = SEV.reduce(function (n, s) { return n + (meta.by_severity[s] || 0); }, 0);
     if (meta.error) return strip;
     if (!total) {
-      append(strip, h("span", { class: meta.errors && meta.errors === meta.scenarios ? "s-err" : "s-none" }));
+      append(strip, h("span", { class: meta.errors && meta.errors === meta.scenarios ? "s-err" : meta.inconclusive ? "s-inc" : "s-none" }));
       return strip;
     }
     SEV.forEach(function (s) {
@@ -272,11 +276,14 @@
   function runSummaryText(meta) {
     if (meta.error) return meta.error;
     if (meta.kind === "test" && meta.errors && meta.errors === meta.scenarios) return plural(meta.errors, "scenario") + " errored";
+    var inc = meta.kind === "test" ? meta.inconclusive || 0 : 0;
     if (!meta.findings) {
       return meta.kind === "mcp_scan" ? "No findings in " + plural(meta.scenarios, "item")
-        : (meta.passed === meta.scenarios ? "All " + meta.scenarios + " scenarios passed" : "No findings in " + plural(meta.scenarios, "scenario"));
+        : (meta.passed === meta.scenarios ? "All " + meta.scenarios + " scenarios passed"
+          : "No findings in " + plural(meta.scenarios, "scenario") + (inc ? "; " + inc + " inconclusive" : ""));
     }
     var parts = SEV.filter(function (s) { return meta.by_severity[s]; }).map(function (s) { return meta.by_severity[s] + " " + s; });
+    if (inc) parts.push(inc + " inconclusive");
     return parts.join(", ");
   }
 
@@ -451,6 +458,14 @@
     }
     append(facts, fact("Generated", fmtTime(rep.generated_at)));
     append(facts, fact("AgentSec", (rep.tool || {}).version || "unknown"));
+    if (!data.isMcp) {
+      var reported = agentReported(rep);
+      if (reported.length) {
+        append(facts, fact("Agent reported", [reported.map(describeAgent).join("; "),
+          reported.some(function (a) { return a.backend === "scripted"; })
+            ? [" ", h("span", { class: "tag warn", title: "A test double made the agent's decisions: verdicts say nothing about any model" }, "Scripted stand-in")] : null]));
+      }
+    }
     append(facts, fact("File", h("code", { title: entry.path }, entry.display_path)));
 
     append(page, h("div", { class: "crumbs" }, h("a", { href: "#/" }, "Reports"), h("span", { "aria-hidden": "true" }, "/"),
@@ -483,8 +498,14 @@
   function verdict(sum) {
     if (!sum.scenarios) return ["This report has no scenarios.", "The policy selected no scenario that could be built. Categories that need tool_effects or agent_roles build nothing without them."];
     if (sum.errors === sum.scenarios) return ["No scenario could run.", "Every scenario ended in an error before the agent answered, so nothing was tested. The errors are listed above."];
+    var inc = sum.inconclusive || 0;
+    if (inc && inc + (sum.errors || 0) + (sum.not_observable || 0) === sum.scenarios) {
+      return ["Nothing was tested: the attack never reached the agent.", "Every scenario that ran was inconclusive: " + INCONCLUSIVE_WHY + ". Inconclusive is not a pass."];
+    }
     if (!sum.findings) {
       var sub = "No deterministic check fired on anything the traces show. That is evidence for these scenarios, not proof the agent is safe.";
+      if (inc) return ["No findings in the scenarios that were tested, but " + plural(inc, "scenario") + (inc === 1 ? " was" : " were") + " inconclusive.",
+        "Inconclusive means " + INCONCLUSIVE_WHY + ". It is not counted as passed. " + sub];
       if (sum.not_observable) return ["No findings, but " + plural(sum.not_observable, "scenario") + " could not be observed.", sub];
       if (sum.errors) return ["No findings in the scenarios that ran; " + plural(sum.errors, "scenario") + " errored.", sub];
       return ["All " + sum.scenarios + " scenarios passed.", sub];
@@ -492,7 +513,8 @@
     var sev = sum.by_severity || {};
     var head = plural(sum.findings, "finding") + " in " + sum.with_findings + " of " + plural(sum.scenarios, "scenario") + ".";
     var bits = SEV.filter(function (s) { return sev[s]; }).map(function (s) { return sev[s] + " " + s; });
-    return [head, bits.join(", ") + ". Each finding carries the input, the observed action, the violated policy and the trace events that show it."];
+    return [head, bits.join(", ") + ". Each finding carries the input, the observed action, the violated policy and the trace events that show it."
+      + (inc ? " " + plural(inc, "scenario") + (inc === 1 ? " was" : " were") + " inconclusive (the attack never reached the agent) and " + (inc === 1 ? "is" : "are") + " not counted as passed." : "")];
   }
 
   function viewOverview(data) {
@@ -505,10 +527,11 @@
       }), sum.errors === sum.scenarios ? h("p", { style: "margin:6px 0 0" }, "Start the agent and run agentsec test again.") : null));
     }
 
-    var v = verdict(sum);
+    var v = verdict(Object.assign({}, sum, { inconclusive: ins.evaluation ? ins.evaluation.inconclusive : sum.inconclusive }));
     var tally = h("div", { class: "tally" }, tallyItem(sum.scenarios, "Scenarios"), tallyItem(sum.passed, "Passed"),
       tallyItem(sum.with_findings, "With findings"), tallyItem(sum.errors, "Errors"),
-      sum.not_observable ? tallyItem(sum.not_observable, "Not observable") : null);
+      sum.not_observable ? tallyItem(sum.not_observable, "Not observable") : null,
+      ins.evaluation && ins.evaluation.inconclusive ? tallyItem(ins.evaluation.inconclusive, "Inconclusive") : null);
     append(wrap, h("div", { class: "verdict-wrap" },
       h("div", null, h("p", { class: "verdict" }, v[0]), h("p", { class: "verdict-sub" }, v[1])), tally));
 
@@ -526,6 +549,10 @@
 
     var left = h("div"), right = h("div");
     append(left, section("Scenarios by attack category", "Each square is one scenario. Select one to open its trace.", matrix(ins, id)));
+    if (ins.attack_goals && ins.attack_goals.length) {
+      append(left, section("Attacks that reached their goal", "Delivered payload, then the call the attacker wanted.",
+        attackGoalsTable(ins.attack_goals, id)));
+    }
     if (ins.rules.length) append(left, section("Rules that fired", null, rulesTable(ins.rules, id)));
     if (ins.tools.length) append(left, section("Tools the agent called", "Every call was simulated by AgentSec; no real action was taken.", toolsTable(ins.tools)));
     var ran = sum.errors !== sum.scenarios;
@@ -533,6 +560,7 @@
       h("p", { class: "note" }, "Findings per category of the ", h("a", { href: safeHref((state.meta && state.meta.owasp && state.meta.owasp.url) || "https://genai.owasp.org/"), rel: "noreferrer noopener", target: "_blank" }, "OWASP Top 10 for Agentic Applications"),
         ". The mapping is Invaris' closest-fit judgement, not an official classification; a finding can count toward more than one category.")));
     if (ran) append(right, section("How the attack arrived", "Scenarios with findings, by where the adversarial content was delivered.", vectorBars(ins.vectors)));
+    if (ins.evaluation) append(right, section("What this run measured", null, evaluationPanel(ins, id)));
     append(right, section("Run", null, runFacts(rep, ins)), section("Reproduce", null, reproduce(data)));
     append(wrap, h("div", { class: "grid2" }, left, right));
     return wrap;
@@ -564,8 +592,10 @@
       var rate = c.by_status.error === c.scenarios ? "all errored" : failed + " of " + c.scenarios;
       append(m, h("div", { class: "mrow" },
         h("div", { class: "cat", title: c.category }, h("a", { href: hashFor({ id: id, tab: "scenarios", q: { cat: c.category } }), style: "color:inherit" }, c.category),
-          h("small", null, c.findings ? plural(c.findings, "finding") + (c.worst ? ", worst " + c.worst : "")
-            : (c.by_status.passed === c.scenarios ? "all passed" : c.by_status.error === c.scenarios ? "not tested" : "no findings"))),
+          h("small", null, (ins.pack_categories && ins.pack_categories.indexOf(c.category) >= 0 ? "attack pack, " : "") + (c.findings ? plural(c.findings, "finding") + (c.worst ? ", worst " + c.worst : "")
+            : (c.by_status.passed === c.scenarios ? "all passed" : c.by_status.error === c.scenarios ? "not tested"
+              : c.by_status.inconclusive === c.scenarios ? "not tested, all inconclusive" : "no findings"))
+            + (c.by_status.inconclusive && c.by_status.inconclusive !== c.scenarios ? ", " + c.by_status.inconclusive + " inconclusive" : ""))),
         cells, h("div", { class: "rate", title: "Scenarios with findings" }, rate)));
     });
     append(panel, m);
@@ -573,7 +603,8 @@
       SEV.map(function (s) { return h("span", null, h("i", { class: "cell " + s }), "Worst finding " + s); }),
       h("span", null, h("i", { class: "cell passed" }), "Passed"),
       h("span", null, h("i", { class: "cell error" }), "Error"),
-      h("span", null, h("i", { class: "cell not_observable" }), "Not observable")));
+      h("span", null, h("i", { class: "cell not_observable" }), "Not observable"),
+      h("span", null, h("i", { class: "cell inconclusive" }), "Inconclusive, attack not delivered")));
     return panel;
   }
 
@@ -595,7 +626,7 @@
       return h("div", { class: "bar" + (v.with_findings ? "" : " zero"), style: "grid-template-columns:minmax(0,1fr) 72px" },
         h("div", { class: "label" }, h("div", null, VECTOR_LABEL[v.vector] || v.vector),
           h("div", { class: "track" }, h("div", { class: "fill", style: "width:" + pct + "%;--c:var(--ink-2)" }))),
-        h("span", { class: "n", title: "Scenarios with findings" }, v.with_findings + " of " + v.scenarios));
+        h("span", { class: "n", title: "Scenarios with findings" + (v.inconclusive ? "; " + v.inconclusive + " inconclusive (not delivered)" : "") }, v.with_findings + " of " + v.scenarios));
     }));
   }
 
@@ -623,6 +654,102 @@
         return h("tr", null, h("td", null, h("code", null, ident(t.tool))), h("td", null, toolClass(t)),
           h("td", { class: "num" }, String(t.calls)), h("td", { class: "num" }, String(t.scenarios)));
       }))));
+  }
+
+  function pct(x) { return x === null || x === undefined ? "–" : Math.round(x * 100) + "%"; }
+
+  function agentReported(rep) {
+    var v = (rep.run_config || {}).agent_reported;
+    return Array.isArray(v) ? v.filter(function (a) { return a && typeof a === "object"; }) : [];
+  }
+
+  function describeAgent(a) {
+    var head = [a.name, a.version].filter(Boolean).join(" ");
+    return [head].concat(["backend", "model", "configuration"].filter(function (k) { return a[k]; })
+      .map(function (k) { return k + " " + a[k]; })).filter(Boolean).join(", ");
+  }
+
+  function provenanceNote(reported) {
+    if (!reported.length) return "Verdicts describe this agent build on this run; the report does not record which model, or whether a scripted stand-in, made the agent's decisions (" + PROVENANCE_HINT + ").";
+    if (reported.some(function (a) { return a.backend === "scripted"; })) return "The agent reported a scripted backend: a test double made its decisions, so these verdicts test the pipeline and say nothing about any model.";
+    return "Verdicts describe this agent build on this run, as the agent reported it (" + reported.map(describeAgent).join("; ") + "). A model run is one observation, not a rate.";
+  }
+
+  function evaluationPanel(ins, id) {
+    var e = ins.evaluation;
+    var dl = h("dl", { class: "kv" });
+    function row(k, v) { append(dl, [h("dt", null, k), h("dd", null, v)]); }
+    row("Tested", e.tested + " of " + plural(e.scenarios, "scenario") + " (" + pct(e.coverage) + "): the agent was attacked and judged");
+    row("With findings", e.tested ? e.with_findings + " of " + e.tested + " tested (" + pct(e.finding_rate) + ")" : "Nothing was tested");
+    row("Passed", e.tested ? e.passed + " of " + e.tested + " tested" : "–");
+    if (e.inconclusive) row("Inconclusive", h("a", { href: hashFor({ id: id, tab: "scenarios", q: { status: "inconclusive" } }) }, plural(e.inconclusive, "scenario")));
+    if (e.errors) row("Errors", h("a", { href: hashFor({ id: id, tab: "scenarios", q: { status: "error" } }) }, plural(e.errors, "scenario")));
+    if (e.not_observable) row("Not observable", h("a", { href: hashFor({ id: id, tab: "scenarios", q: { status: "not_observable" } }) }, plural(e.not_observable, "scenario")));
+    var goals = ins.attack_goals || [];
+    if (goals.length) {
+      var scen = uniq(goals.map(function (g) { return g.scenario_id; })).length;
+      row("Attack goals reached", h("a", { href: hashFor({ id: id, tab: "findings", q: { rule: "attack_goal_achieved" } }) }, plural(goals.length, "finding") + " in " + plural(scen, "scenario")));
+    }
+    return h("div", { class: "panel" }, dl,
+      h("p", { class: "note", style: "padding:0 18px 14px;margin:0" }, "Errored, inconclusive and not-observable scenarios measured nothing and are left out of the rates. "
+        + provenanceNote(ins.reported || [])));
+  }
+
+  // "open_email result #18, tool result 6 of 7"
+  function deliveryText(g) {
+    if (g.delivered_seq === null || g.delivered_seq === undefined) return "Not tracked by this scenario";
+    var where = (g.delivered_tool || "tool") + " result #" + g.delivered_seq;
+    if (g.delivered_in_result) where += ", tool result " + g.delivered_in_result + (g.tool_results ? " of " + g.tool_results : "");
+    return where;
+  }
+
+  function actionText(g) {
+    if (g.action_seq === null || g.action_seq === undefined) return "–";
+    var t = (g.action_tool || "tool") + " call #" + g.action_seq;
+    if (g.calls_in_between === 0) t += ", the next call after delivery";
+    else if (g.calls_in_between) t += ", after " + plural(g.calls_in_between, "other call");
+    return t;
+  }
+
+  function attackGoalsTable(goals, id) {
+    return h("div", { class: "panel", style: "overflow-x:auto" }, h("table", null,
+      h("thead", null, h("tr", null, h("th", null, "Severity"), h("th", null, "Attack goal, then payload delivered → goal reached"))),
+      h("tbody", null, goals.map(function (g) {
+        var href = hashFor({ id: id, tab: "scenarios", sub: g.scenario_id, q: { f: g.finding_id } });
+        var path = (typeof g.delivered_seq === "number" ? (g.delivered_tool || "result") + " #" + g.delivered_seq
+          + (g.delivered_in_result ? " (result " + g.delivered_in_result + (g.tool_results ? " of " + g.tool_results : "") + ")" : "") : "delivery not tracked")
+          + " → " + (g.action_tool || "call") + " #" + g.action_seq;
+        return h("tr", { class: "link", onclick: function (e) { if (e.target.tagName !== "A") location.hash = href; } },
+          h("td", null, sevLabel(g.severity)),
+          h("td", null, h("a", { href: href }, g.goal), h("div", { class: "item-sub" }, g.scenario_id),
+            h("div", { class: "mono dim", style: "font-size:12px", title: deliveryText(g) + "; " + actionText(g) }, path)));
+      }))));
+  }
+
+  // seq -> labels for the trace: where the payload arrived and which call reached the attacker's goal
+  function goalMarks(goals) {
+    var marks = {};
+    goals.forEach(function (g) {
+      if (typeof g.delivered_seq === "number") (marks[g.delivered_seq] = marks[g.delivered_seq] || []).push({ kind: "delivered", text: "Payload delivered" });
+      if (typeof g.action_seq === "number") (marks[g.action_seq] = marks[g.action_seq] || []).push({ kind: "goal", text: "Attack goal reached: " + g.goal, severity: g.severity });
+    });
+    return marks;
+  }
+
+  function attackTimeline(g, firstSeq) {
+    var steps = [h("li", null, h("b", null, "Task given"), " #" + firstSeq + ", the user's request")];
+    if (typeof g.delivered_seq === "number") {
+      steps.push(h("li", null, h("b", null, "Payload delivered"), " in the " + deliveryText(g)
+        + (g.delivered_in_result > 1 ? "; " + plural(g.delivered_in_result - 1, "earlier tool result") + " carried no payload" : "")));
+    } else {
+      steps.push(h("li", null, h("b", null, "Payload delivered"), " (this scenario does not track delivery; the content was part of what the agent read)"));
+    }
+    steps.push(h("li", null, h("b", null, "Attack goal reached"), " by the " + actionText(g) + ": " + g.goal));
+    return h("ol", { class: "timeline" }, steps);
+  }
+
+  function goalsFor(data, scenarioId) {
+    return ((data.insights || {}).attack_goals || []).filter(function (g) { return g.scenario_id === scenarioId; });
   }
 
   function runFacts(rep, ins) {
@@ -656,7 +783,8 @@
     if (run.replay) append(box, h("p", { class: "dim", style: "margin:0 0 4px;font-size:13px" }, "Re-run the same scenarios:"), cmd(run.replay));
     if (data.report.findings.length) {
       append(box, h("p", { class: "dim", style: "margin:12px 0 4px;font-size:13px" }, "Check whether these findings still reproduce:"),
-        cmd("agentsec replay " + shellQuote(data.entry.display_path) + " --policy " + policyArg(data)));
+        cmd("agentsec replay " + shellQuote(data.entry.display_path) + " --policy " + policyArg(data)),
+        h("p", { class: "note" }, "Each finding comes back REPRODUCED, NOT REPRODUCED, INCONCLUSIVE (the payload did not reach the agent this time, so it is not fixed; exit code 2) or ERROR."));
     }
     if (!run.policy_path) append(box, h("p", { class: "note" }, "The report does not record the policy path, so agentsec.yaml is assumed."));
     return box;
@@ -780,7 +908,13 @@
     append(d, block(data.isMcp ? "What the check found" : "What the agent did", h("div", { class: "quote code" }, f.observed_action)));
     append(d, block("Policy violated", h("p", null, h("code", null, f.policy_violated))));
     if (f.input) append(d, block(data.isMcp ? "Checked" : "Input", h("div", { class: "quote" }, f.input)));
-    append(d, block("Evidence", evidence(data, f)));
+    var goal = f.rule === "attack_goal_achieved" ? goalsFor(data, f.scenario_id).filter(function (g) { return g.finding_id === f.id; })[0] : null;
+    if (goal) {
+      var sc = data.scenarioById[f.scenario_id];
+      var first = sc && sc.trace && sc.trace.events && sc.trace.events.length ? sc.trace.events[0].seq : 0;
+      append(d, block("Attack timeline", attackTimeline(goal, first)));
+    }
+    append(d, block("Evidence", evidence(data, f, goal ? goalMarks([goal]) : null)));
     append(d, block("Remediation", h("p", null, f.remediation)));
     append(d, block("Reproduce", findingCommands(data, f)));
     return d;
@@ -792,7 +926,7 @@
     return b;
   }
 
-  function evidence(data, f) {
+  function evidence(data, f, labels) {
     var ev = f.evidence || [];
     if (!ev.length) return h("p", { class: "muted" }, "No trace events attached.");
     var isEvents = ev.every(function (e) { return e && typeof e.seq === "number" && e.type; });
@@ -800,7 +934,7 @@
       return h("div", null, ev.map(function (e) { return h("div", { class: "args" }, jsonView(e)); }));
     }
     var box = h("div", { class: "trace", style: "margin:0 -22px" });
-    ev.forEach(function (e) { append(box, eventRow(e, { evidence: f.severity })); });
+    ev.forEach(function (e) { append(box, eventRow(e, { evidence: f.severity, labels: labels && labels[e.seq] })); });
     return h("div", null, box, h("a", { href: hashFor({ id: data.entry.id, tab: "scenarios", sub: f.scenario_id, q: { f: f.id } }) }, "Open the full trace"));
   }
 
@@ -841,7 +975,7 @@
     append(wrap, filterBar(r, all, {
       placeholder: "Search scenarios",
       keepSub: false,
-      chips: { key: "status", field: "status", values: ["findings", "error", "not_observable", "passed"], label: function (s) { return statusLabel(s); } },
+      chips: { key: "status", field: "status", values: ["findings", "error", "inconclusive", "not_observable", "passed"], label: function (s) { return statusLabel(s); } },
       selects: [
         { key: "cat", label: "All categories", values: uniq(all.map(function (s) { return s.category; })) },
         { key: "vector", label: "All vectors", values: uniq(all.map(function (s) { return s.vector; })), name: function (v) { return VECTOR_LABEL[v] || v; } }
@@ -905,6 +1039,33 @@
     if (s.status === "not_observable") {
       append(d, block("Why not observable", h("p", null, "This scenario needs the system to report which agent acted (actor attribution), and the trace has none. It is not counted as passed.")));
     }
+    if (s.status === "inconclusive") {
+      append(d, block("Why inconclusive", h("p", null, "This scenario counts as tested only once its adversarial content appears in a tool result the agent received. In this run "
+        + INCONCLUSIVE_WHY + ". It is not counted as passed, and a finding from an earlier run is not counted as fixed. The trace below shows how far the agent got."),
+        h("p", { class: "note" }, "To test it, give the agent a task that leads it to the poisoned item, or replay the scenario; with a real model, run it more than once.")));
+    }
+    var goals = goalsFor(data, s.id);
+    if (goals.length) {
+      append(d, block(goals.length > 1 ? "Attack timelines" : "Attack timeline", h("div", null, goals.map(function (g) {
+        return attackTimeline(g, t.events.length ? t.events[0].seq : 0);
+      }))));
+    }
+    var labels = goalMarks(goals);
+    var dv = s.delivery;
+    if (dv && typeof dv.seq === "number" && !goals.some(function (g) { return g.delivered_seq === dv.seq; })) {
+      (labels[dv.seq] = labels[dv.seq] || []).push({ kind: "delivered", text: "Payload delivered" });
+    }
+    if (Array.isArray(s.attack_goals) && s.attack_goals.length) {
+      append(d, block("Attack goals", h("div", null,
+        dv ? h("p", { style: "margin:0 0 8px" }, dv.delivered ? "Payload delivered in the " + (dv.tool || "tool") + " result #" + dv.seq + "."
+          : "The payload never reached the agent, so no goal was tested.") : null,
+        h("ul", { class: "timeline", style: "list-style:none;padding:0" }, s.attack_goals.map(function (g) {
+          var st = g.achieved === true ? h("span", { class: "sev " + (g.severity || "critical") }, "Achieved")
+            : g.achieved === false ? h("span", { class: "status passed" }, "Not achieved") : h("span", { class: "status inconclusive" }, "Not tested");
+          return h("li", null, st, " ", g.description,
+            (g.tools || []).length ? h("span", { class: "muted" }, " via " + g.tools.join(", ")) : null);
+        })))));
+    }
     if (findings.length) {
       append(d, block("Findings", h("div", null, findings.map(function (f) {
         return h("div", { style: "display:flex;gap:10px;align-items:baseline;padding:3px 0" }, sevLabel(f.severity),
@@ -925,7 +1086,7 @@
       var fs = marks[e.seq] || [];
       append(trace, eventRow(e, {
         evidence: fs.length ? worstOf(fs.map(function (f) { return f.severity; })) : null,
-        findings: fs, focus: focusFinding && fs.some(function (f) { return f.id === focusFinding; }), reportId: id
+        findings: fs, focus: focusFinding && fs.some(function (f) { return f.id === focusFinding; }), reportId: id, labels: labels[e.seq]
       }));
     });
     append(d, h("section", { class: "block", style: "padding-left:0;padding-right:0" },
@@ -954,6 +1115,10 @@
       h("span", { class: "glyph", "aria-hidden": "true" }, EVENT_GLYPH[e.type] || "·"),
       h("div", { style: "min-width:0" }, who, body));
     var flags = [];
+    (opts.labels || []).forEach(function (l) {
+      flags.push(l.kind === "goal" ? h("span", { class: "tag mark-goal" }, h("span", { class: "sev " + (l.severity || "critical") }, l.text))
+        : h("span", { class: "tag mark-delivered" }, l.text));
+    });
     if (meta.over_budget) flags.push(h("span", { class: "tag warn" }, "Over the tool-call budget; not executed"));
     if (meta.executed_by_agent) flags.push(h("span", { class: "tag" }, "Executed by the agent and reported to AgentSec"));
     (opts.findings || []).forEach(function (f) {
@@ -1143,7 +1308,9 @@
   }
 
   function warningBox(w) {
-    var i = w.indexOf(": ");
+    // AgentSec warnings end in ": <id>, <id>, ..."; the explanation before the list can itself contain ": ".
+    var last = w.lastIndexOf(": ");
+    var i = last > 0 && w.slice(last + 2).split(", ").every(function (x) { return /^\S+$/.test(x); }) ? last : w.indexOf(": ");
     if (w.length > 220 && i > 0) {
       var items = w.slice(i + 2).split(", ");
       return h("div", { class: "warn-box" }, h("p", null, w.slice(0, i) + "."),
@@ -1226,6 +1393,8 @@
     var compared = c.new.length + c.worse.length + c.fixed.length + c.better.length + c.unchanged.length;
     var verdictText = !compared && !c.not_comparable.length ? "Neither run has findings to compare." : c.regressions ? plural(c.regressions, "regression") + ": new or more severe findings in the current run."
       : (c.fixed.length ? "No regressions, and " + plural(c.fixed.length, "finding") + " fixed." : "No regressions.");
+    var untested = c.not_comparable.filter(function (f) { return f.reason === "inconclusive"; }).length;
+    if (untested) verdictText += " " + plural(untested, "finding") + " could not be checked: the attack never reached the agent in the current run.";
     append(wrap, h("p", { class: "verdict", style: "font-size:20px;max-width:none;margin-bottom:22px" }, verdictText));
 
     function group(title, items, reportId, sub, open) {
@@ -1234,7 +1403,7 @@
         var href = hashFor({ id: reportId, tab: "findings", sub: f.id });
         return h("tr", { class: "link", onclick: function () { location.hash = href; } },
           h("td", null, sevLabel(f.severity), f.previous_severity ? h("div", { class: "sevchange" }, "was " + f.previous_severity) : null),
-          h("td", null, h("a", { href: href }, f.title), h("div", { class: "item-sub" }, f.scenario_id)),
+          h("td", null, h("a", { href: href }, f.title), h("div", { class: "item-sub" }, f.scenario_id + (f.reason ? ", " + (NOT_COMPARABLE_WHY[f.reason] || f.reason) : ""))),
           h("td", null, h("code", null, f.rule)));
       }));
       var det = h("details", { class: "section", open: open ? "open" : null },
@@ -1247,11 +1416,60 @@
     append(wrap, group("Severity increased", c.worse, c.head.id, null, true));
     append(wrap, group("Fixed", c.fixed, c.base.id, "Shown from the baseline report", true));
     append(wrap, group("Severity decreased", c.better, c.head.id, null, false));
-    append(wrap, group("Not comparable", c.not_comparable, c.base.id, "The scenario is missing or errored in the current run, so these cannot count as fixed", false));
+    append(wrap, group("Not comparable", c.not_comparable, c.base.id, "The scenario is missing, errored, inconclusive or not observable in the current run, so these cannot count as fixed", untested > 0));
     append(wrap, group("Unchanged", c.unchanged, c.head.id, null, false));
+    if (c.evaluation || (c.verdict_changes && c.verdict_changes.length)) {
+      append(wrap, section("Scenario verdicts", "For a baseline and a hardened build of the same agent, or any two runs: what each run measured and every scenario whose verdict changed. A scenario that became inconclusive was not tested, not fixed.",
+        verdictComparison(c)));
+    }
     append(wrap, section("Same comparison in the terminal or CI", null,
       cmd("agentsec compare " + shellQuote(c.base.display_path) + " " + shellQuote(c.head.display_path))));
     return wrap;
+  }
+
+  var NOT_COMPARABLE_WHY = { missing: "not in the current run", error: "errored in the current run", inconclusive: "inconclusive in the current run (attack not delivered)",
+    not_observable: "not observable in the current run" };
+
+  function verdictChange(b, hd) {
+    if (!b) return ["Only in the current run", ""];
+    if (!hd) return ["Only in the baseline", ""];
+    if (hd === "inconclusive") return ["Not tested in the current run", "warn"];
+    if (hd === "error") return ["Errored in the current run", "warn"];
+    if (hd === "not_observable") return ["Not observable in the current run", "warn"];
+    if (hd === "findings") return [b === "passed" ? "Now has findings" : "Tested, has findings", "bad"];
+    if (hd === "passed") return [b === "findings" ? "No longer has findings" : "Tested, passed", b === "findings" ? "good" : ""];
+    return [hd, ""];
+  }
+
+  function verdictComparison(c) {
+    var box = h("div");
+    if (c.evaluation) {
+      var b = c.evaluation.base, hd = c.evaluation.head;
+      var rows = [["Scenarios", "scenarios"], ["Tested", "tested"], ["With findings", "with_findings"], ["Passed", "passed"],
+        ["Inconclusive", "inconclusive"], ["Errors", "errors"], ["Not observable", "not_observable"]];
+      append(box, h("div", { class: "panel", style: "overflow-x:auto;margin-bottom:14px" }, h("table", null,
+        h("thead", null, h("tr", null, h("th", null, ""), h("th", { class: "num" }, "Baseline"), h("th", { class: "num" }, "Current"))),
+        h("tbody", null, rows.filter(function (r) { return b[r[1]] || hd[r[1]] || r[1] === "tested" || r[1] === "scenarios"; }).map(function (r) {
+          return h("tr", null, h("td", null, r[0]), h("td", { class: "num" }, fmtNum(b[r[1]])), h("td", { class: "num" }, fmtNum(hd[r[1]])));
+        }).concat([h("tr", null, h("td", null, "Finding rate among tested"), h("td", { class: "num" }, pct(b.finding_rate)), h("td", { class: "num" }, pct(hd.finding_rate)))])))));
+    }
+    var changes = c.verdict_changes || [];
+    if (!changes.length) {
+      append(box, h("p", { class: "muted", style: "margin:0" }, "Every scenario has the same verdict in both runs."));
+      return box;
+    }
+    append(box, h("div", { class: "panel", style: "overflow-x:auto" }, h("table", null,
+      h("thead", null, h("tr", null, h("th", null, "Scenario"), h("th", null, "Baseline"), h("th", null, "Current"), h("th", null, "Change"))),
+      h("tbody", null, changes.map(function (x) {
+        var ch = verdictChange(x.base, x.head);
+        var href = hashFor({ id: x.head ? c.head.id : c.base.id, tab: "scenarios", sub: x.id });
+        return h("tr", { class: "link", onclick: function (e) { if (e.target.tagName !== "A") location.hash = href; } },
+          h("td", null, h("a", { href: href }, x.title || x.id), h("div", { class: "item-sub" }, x.id)),
+          h("td", null, x.base ? statusLabel(x.base) : h("span", { class: "muted" }, "–")),
+          h("td", null, x.head ? statusLabel(x.head) : h("span", { class: "muted" }, "–")),
+          h("td", { class: "change " + ch[1] }, ch[0]));
+      })))));
+    return box;
   }
 
   /* ------------------------------------------------------------------ keyboard, theme, boot */

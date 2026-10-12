@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from .. import verdicts
+from ..attacks import CATEGORIES
 from ..compare import compare
 from ..evaluators import SEVERITIES, severity_rank
 from ..owasp import ASI
 
-STATUSES = ("findings", "error", "not_observable", "passed")
+STATUSES = verdicts.STATUSES   # includes "inconclusive": never counted as passed
 
 
 def _worst(severities: List[str]) -> Optional[str]:
@@ -90,6 +92,7 @@ def suite_insights(report: Dict[str, Any]) -> Dict[str, Any]:
         v["scenarios"] += 1
         v["with_findings"] += status == "findings"
         v["errors"] += status == "error"
+        v["inconclusive"] = v.get("inconclusive", 0) + (status == "inconclusive")
 
         trace = s.get("trace") or {}
         outcomes[trace.get("outcome", "completed")] = outcomes.get(trace.get("outcome", "completed"), 0) + 1
@@ -147,6 +150,11 @@ def suite_insights(report: Dict[str, Any]) -> Dict[str, Any]:
         "multi_session_scenarios": multi_session,
         "usage": usage,
         "model_assisted": sum(f.get("source") == "model-assisted" for f in report.get("findings", [])),
+        # agentsec.verdicts: the rules compare and the hosted dashboard apply too
+        "evaluation": verdicts.evaluation(report),
+        "attack_goals": verdicts.attack_goals(report),
+        "pack_categories": sorted(set(categories) - set(CATEGORIES)),
+        "reported": verdicts.agent_reported(report),
     }
 
 
@@ -178,6 +186,7 @@ def compare_reports(base: Dict[str, Any], head: Dict[str, Any]) -> Dict[str, Any
     """`agentsec compare`, as data. Severity changes carry the baseline severity too."""
     c = compare(base, head)
     base_sev = _severity_by_finding(base)
+    head_kind_mcp = head.get("kind") == "mcp_scan"
 
     def slim(f: Dict[str, Any]) -> Dict[str, Any]:
         d = {k: f.get(k) for k in ("id", "rule", "scenario_id", "category", "severity", "title", "source")}
@@ -188,9 +197,16 @@ def compare_reports(base: Dict[str, Any], head: Dict[str, Any]) -> Dict[str, Any
     def order(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return [slim(f) for f in sorted(items, key=lambda x: (-severity_rank(x["severity"]), x["id"]))]
 
-    return {
+    not_comparable = order(c.not_comparable)
+    for f in not_comparable:
+        f["reason"] = verdicts.not_comparable_reason(f, head)   # missing, error, inconclusive, ...
+    out = {
         "new": order(c.new), "worse": order(c.worse), "fixed": order(c.fixed), "better": order(c.better),
-        "unchanged": order(c.unchanged), "not_comparable": order(c.not_comparable),
+        "unchanged": order(c.unchanged), "not_comparable": not_comparable,
         "warnings": c.warnings,
         "regressions": len(c.regressions("low")),
+        "verdict_changes": c.verdict_changes,
     }
+    if not head_kind_mcp:
+        out["evaluation"] = {"base": c.base_evaluation, "head": c.head_evaluation}
+    return out
