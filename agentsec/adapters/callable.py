@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from .base import AdapterError, AgentAdapter, AgentReply, ToolCall
+from .base import AdapterError, AgentAdapter, AgentReply, ToolCall, agent_info
 
 
 class CallableAdapter(AgentAdapter):
@@ -17,7 +17,7 @@ class CallableAdapter(AgentAdapter):
     * an `AgentReply`, or
     * a dict: {"content": str, "tool_calls": [{"name", "arguments", "id"?, "actor"?, "delegated_by"?}],
                "executed": [{"name", "arguments", "result", "actor"?, "delegated_by"?}],
-               "actor": str?, "cost_usd": float, "prompt_tokens": int, "completion_tokens": int}
+               "actor": str?, "agent": {"backend", "model", ...}?, "cost_usd": float, "prompt_tokens": int, "completion_tokens": int}
 
     `actor`/`delegated_by` are for multi-agent systems: which agent made a call or wrote the
     message, and which agent delegated the work to it (see docs/multi-agent.md).
@@ -68,6 +68,7 @@ class CallableAdapter(AgentAdapter):
                                              actor=tc.get("actor") or None,
                                              delegated_by=tc.get("delegated_by") or None))
         reply.actor = result.get("actor") or None
+        reply.agent = agent_info(result.get("agent"))
         reply.executed = [e for e in (result.get("executed") or []) if isinstance(e, dict) and e.get("name")]
         reply.prompt_tokens = int(result.get("prompt_tokens") or 0)
         reply.completion_tokens = int(result.get("completion_tokens") or 0)

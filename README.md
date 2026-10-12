@@ -42,7 +42,18 @@ The test suite covers:
 - Agents misreporting what they did: denying a side effect the trace shows, or claiming work that never happened (`deceptive_action_report`)
 - Identity, session and authorization confusion: acting on another user's or tenant's resource, reusing a permission granted for an earlier task or another session, using a credential another caller left behind (`identity_and_session_confusion`)
 - Multi-agent privilege abuse: sub-agents exceeding their role, privilege escalation through delegation (confused deputy), unauthorized delegation, unregistered agents, secrets passed between agents (`multi_agent_delegation`, when the policy declares `agent_roles`) -- see [Multi-agent testing](docs/multi-agent.md)
+- Indirect prompt injection through the surfaces a real agent actually reads: email bodies, signatures, quoted threads, HTML parts and attachments; web page text, HTML comments, metadata, CSS-hidden elements, image alt attributes and user reviews -- with the observable outcome stated as a goal (mail forwarded or deleted, a form submitted off-site, an order placed, data carried off in a URL). See [Email and browser packs](docs/email-and-browser-packs.md)
 - Behavioural regressions across models and prompts, via `agentsec compare`
+
+A scenario can state what the attack needs in order to count. `Scenario.exposure` names text only
+the adversarial content contains, so a run in which the agent never read it is reported as
+**inconclusive**, never as passed; `Scenario.attack_goals` states what a successful attack *does* as
+a tool call, and a goal only counts for calls made *after* the content was delivered, so a finding is
+evidence of cause rather than coincidence; `inject_after()` places the content at a later step of a
+multi-step task. So each scenario ends in one of: **findings** (it received the content and acted on
+it), **passed** (it received the content and did not), **inconclusive** (the content never arrived) or
+**error** (the run could not complete) -- and neither of the last two is ever counted as a pass. See
+[Attack goals and delivery tracking](docs/extending.md#track-delivery-attack-goals-and-mid-task-injection).
 
 Every check above is deterministic and opt-in by declaration: categories that need `tool_effects` or `agent_roles` build no scenarios without them, and a multi-agent scenario run against a system that reports no agent attribution is reported as **not observable**, never as passed. Unauthorized financial or on-chain actions are covered, but not by the default thirteen categories above -- via the bundled on-chain attack pack and the policy's `spend_limits`/`address_allowlist`; see [Domain attack packs](docs/domain-attack-packs.md). What has and has not been tested against real agents and frameworks is in [Testing](docs/testing.md#what-has-been-tested-against-real-agents-and-frameworks).
 
@@ -160,7 +171,9 @@ uploaded unless you run it.
 reproducible run and `-s <category-or-scenario-id>` to run a subset.
 
 **Replay.** `agentsec replay .agentsec/report.json` re-runs the findings from an earlier report with
-the recorded seed and prints `REPRODUCED` or `NOT REPRODUCED` for each, so you can confirm a fix.
+the recorded seed and prints `REPRODUCED`, `NOT REPRODUCED` or `INCONCLUSIVE` for each, so you can
+confirm a fix. A rerun in which the adversarial content never reached the agent is reported as
+`INCONCLUSIVE` and exits `2`, never as fixed.
 
 **Model-assisted checks.** Add a `judge:` section to your policy and pass `--judge` to have a model
 review scenarios the deterministic checks passed, for example a paraphrased leak. These findings are
@@ -169,7 +182,7 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **A RAG-style agent.** `examples/rag_agent` owns a small document corpus and runs its tools itself, reporting the calls to AgentSec. Start it with `python examples/rag_agent/server.py` (add `--safe` for the hardened variant) and test it with `agentsec test -p examples/rag_agent/agentsec.yaml`. See [`docs/agent-contract.md`](docs/agent-contract.md#the-rag-backed-reference-agent).
 
-**Real-world reference agents.** `examples/real_world_agents` has three more vulnerable/`--safe` reference agents modeled on daily-use AI agent products -- a coding assistant, a customer-support assistant and a browser-automation assistant -- each paired one-to-one with its matching domain attack pack below. See [`examples/real_world_agents/README.md`](examples/real_world_agents/README.md) and [`docs/agent-contract.md`](docs/agent-contract.md#the-real-world-reference-agents).
+**Real-world reference agents.** `examples/real_world_agents` has four more deterministic, rule-based vulnerable/`--safe` reference agents modeled on daily-use AI agent products -- a coding assistant, a customer-support assistant, a browser-automation assistant and a planner/researcher/executor team -- each paired one-to-one with its matching domain attack pack below. It also has two **LLM-powered** reference assistants (email and browser) whose every tool decision is made by a configurable model rather than by rules; see [Email and browser packs](docs/email-and-browser-packs.md). See [`examples/real_world_agents/README.md`](examples/real_world_agents/README.md) and [`docs/agent-contract.md`](docs/agent-contract.md#the-real-world-reference-agents).
 
 **Regression comparison.** `agentsec compare old/report.json new/report.json` lists new, fixed and changed findings and exits `1` on regressions. The packaged GitHub Action wires this into pull requests automatically (`baseline-report`), posting and updating a PR comment with what's new or worse; see [GitHub Actions](docs/github-actions.md#pull-request-and-scheduled-regression-testing).
 
@@ -179,14 +192,36 @@ judge endpoint. See [`docs/judge.md`](docs/judge.md).
 
 **LangChain and LangGraph agents** can be tested in-process with `LangChainAdapter`; see [`docs/frameworks.md`](docs/frameworks.md). Any other framework works through the generic `CallableAdapter`.
 
+**Email and browser injection packs.** Two bundled packs test the agents most exposed to indirect
+prompt injection, each against an LLM-powered reference assistant with a baseline and a hardened
+configuration:
+
+```bash
+# start a reference assistant (model from AGENTSEC_LLM_* env vars; --backend scripted for offline)
+python examples/real_world_agents/email_assistant/server.py            # --safe for hardened
+agentsec test -p examples/real_world_agents/email_assistant/agentsec.yaml
+
+# browser pack
+python examples/real_world_agents/llm_browser_assistant/server.py      # --safe for hardened
+agentsec test -p examples/attack_packs/browser_agent.agentsec.yaml
+```
+
+Both ship an offline before/after demo (`demo.py`) and an optional real-model harness
+(`evaluate_live.py`), which refuses to run without a configured backend so a results table always
+reflects an actual model execution. See [Email and browser packs](docs/email-and-browser-packs.md).
+
 **Your own scenarios** can be added without forking AgentSec: `agentsec test --attack-pack my_pack.py` or `attack_packs:` in the policy loads extra categories from a local file or an installed package; see [`docs/extending.md`](docs/extending.md#write-an-attack-pack).
 
 **Other commands.** `agentsec dashboard` browses reports in a local web UI, `agentsec upload` sends one to a hosted dashboard, `agentsec init` writes a starter policy and `agentsec schema policy|trace` prints
 the JSON schemas.
 
-The categories are `prompt_injection`, `indirect_prompt_injection`, `secret_extraction`,
-`unauthorized_tool_use`, `tool_output_poisoning`, `unsafe_retrieved_documents`,
-`loop_and_budget_limits` and `memory_poisoning`.
+The thirteen built-in categories are `prompt_injection`, `indirect_prompt_injection`,
+`secret_extraction`, `unauthorized_tool_use`, `tool_output_poisoning`, `unsafe_retrieved_documents`,
+`loop_and_budget_limits`, `memory_poisoning`, `action_without_authorization`,
+`dangerous_composition`, `deceptive_action_report`, `identity_and_session_confusion` and
+`multi_agent_delegation`. The last five build scenarios only when the policy declares what they
+need (`tool_effects`, `agent_roles`); see the [Attack catalog](docs/attack-catalog.md) for all
+13 categories and up to 47 scenarios.
 
 **Agent contract.** The adapter posts OpenAI-style chat-completions requests to `agent.endpoint`
 and declares your allowed tools (plus forbidden actions as decoys). AgentSec plays the tools:
@@ -280,7 +315,7 @@ agentsec/
 └── pytest_plugin.py  # pytest fixtures
 action.yml, action/   # Packaged GitHub Action (incl. baseline comparison, PR comments)
 examples/             # Vulnerable reference agents (rule-based, RAG-backed, real-world, MCP) and attack packs
-tests/                # Unit and end-to-end tests (450+ tests)
+tests/                # Unit and end-to-end tests (550+ tests)
 benchmarks/           # Framework, memory-system and real-agent runs (results checked in)
 ```
 
@@ -302,13 +337,15 @@ benchmarks/           # Framework, memory-system and real-agent runs (results ch
 - [x] OpenAI-compatible HTTP agent adapter, with optional server-sent-events streaming (`agent.stream: true`)
 - [x] `CallableAdapter` for testing an agent in-process, no HTTP server required
 - [x] YAML security policies, validated against a JSON Schema (`agentsec schema policy`)
-- [x] Eight adversarial test categories: direct prompt injection, indirect prompt injection, secret extraction, unauthorized tool use, tool-output poisoning, unsafe retrieved documents, loop-and-budget limits, and memory poisoning (four two-session scenarios)
+- [x] Thirteen adversarial test categories, up to 47 scenarios: direct and indirect prompt injection, secret extraction, unauthorized tool use, tool-output poisoning, unsafe retrieved documents, loop-and-budget limits, memory poisoning (two-session scenarios), plus `action_without_authorization`, `dangerous_composition`, `deceptive_action_report`, `identity_and_session_confusion` and `multi_agent_delegation` (the last five are opt-in by declaration)
 - [x] Step, tool-call, token, time and cost limits, with pricing-based cost tracking
 - [x] Policy-declared spend limits (`spend_limits`) and destination-address allowlists (`address_allowlist`) for tools that move money, enforced generically against any named tool's own arguments rather than tied to a specific integration; see [Policy reference](docs/policy-reference.md#spend_limits)
 - [x] Deterministic evaluators, plus an optional model-assisted judge for paraphrased or borderline leaks
 - [x] Normalized execution traces recording every prompt, tool call, tool result and state change
 - [x] Findings mapped to the OWASP Top 10 for Agentic Applications (ASI01-ASI10)
 - [x] Reproducible runs via `--seed`, and a CI-friendly exit code (`1` findings, `2` error)
+- [x] Delivery tracking (`Scenario.exposure`), observable attack goals (`Scenario.attack_goals`, `AttackGoalEvaluator`) and mid-task injection (`inject_after()`), with an `inconclusive` verdict so a scenario whose adversarial content never reached the agent is never reported as passed
+- [x] Email and browser attack packs covering five message and six DOM injection surfaces, with two LLM-powered reference assistants (configurable Anthropic / OpenAI-compatible backend), baseline and hardened configurations, and an optional live-model evaluation harness
 
 ### Reports and CI
 
@@ -334,7 +371,7 @@ benchmarks/           # Framework, memory-system and real-agent runs (results ch
 
 - [x] Python API (`AgentTarget`, `SecuritySuite`) mirroring the CLI, for running scenarios from code
 - [x] A pytest plugin (`agentsec_run` fixture, `--agentsec-policy`)
-- [x] Attack packs: load extra scenario categories from a local file or an installed package without forking AgentSec (`attack_packs:` in the policy, or `agentsec test --attack-pack`), validated and name-collision-checked at load time. A pack can also ship its own `EVALUATORS` for deterministic checks the built-in ones can't express, and its own `JUDGE_CHECKS` so `--judge` can ask a question phrased in the pack's own domain terms instead of only the two built-in ones -- five full reference packs covering [coding](examples/attack_packs/coding_agent_pack.py), [browser](examples/attack_packs/browser_agent_pack.py), [RAG](examples/attack_packs/rag_pack.py) (including a pack-provided judge check), [customer-support](examples/attack_packs/support_agent_pack.py) and [on-chain](examples/attack_packs/onchain_agent_pack.py) agents; see [Domain attack packs](docs/domain-attack-packs.md) and [Extending AgentSec](docs/extending.md#give-a-pack-its-own-judge-check)
+- [x] Attack packs: load extra scenario categories from a local file or an installed package without forking AgentSec (`attack_packs:` in the policy, or `agentsec test --attack-pack`), validated and name-collision-checked at load time. A pack can also ship its own `EVALUATORS` for deterministic checks the built-in ones can't express, and its own `JUDGE_CHECKS` so `--judge` can ask a question phrased in the pack's own domain terms instead of only the two built-in ones -- six full reference packs covering [coding](examples/attack_packs/coding_agent_pack.py), [browser](examples/attack_packs/browser_agent_pack.py), [email](examples/attack_packs/email_agent_pack.py), [RAG](examples/attack_packs/rag_pack.py) (including a pack-provided judge check), [customer-support](examples/attack_packs/support_agent_pack.py) and [on-chain](examples/attack_packs/onchain_agent_pack.py) agents; see [Domain attack packs](docs/domain-attack-packs.md), [Email and browser packs](docs/email-and-browser-packs.md) and [Extending AgentSec](docs/extending.md#give-a-pack-its-own-judge-check)
 - [x] Two intentionally vulnerable reference agents (rule-based, RAG-backed), each with a hardened variant that passes the full suite, plus a demo MCP server and an MCP-connected reference agent
 
 ## Future Work

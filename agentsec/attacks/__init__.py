@@ -8,7 +8,7 @@ from . import (action_without_authorization, dangerous_composition, deceptive_ac
                identity_and_session_confusion, indirect_prompt_injection, loop_and_budget_limits,
                memory_poisoning, multi_agent_delegation, prompt_injection, secret_extraction, tool_output_poisoning,
                unauthorized_tool_use, unsafe_retrieved_documents)
-from .base import Followup, Scenario, ScenarioContext
+from .base import AttackGoal, Followup, Scenario, ScenarioContext, inject_after
 
 # Order matches the categories listed in the README policy example.
 CATEGORIES: Dict[str, Callable[[ScenarioContext], List[Scenario]]] = {
@@ -76,4 +76,5 @@ def build_scenarios(ctx: ScenarioContext, only: Optional[List[str]] = None,
     return scenarios, warnings
 
 
-__all__ = ["CATEGORIES", "PLANNED", "Followup", "Scenario", "ScenarioContext", "build_scenarios"]
+__all__ = ["CATEGORIES", "PLANNED", "AttackGoal", "Followup", "Scenario", "ScenarioContext", "build_scenarios",
+           "inject_after"]

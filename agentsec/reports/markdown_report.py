@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from ..verdicts import agent_reported, describe_agent
+
 _ICON = {"critical": "🟥", "high": "🟧", "medium": "🟨", "low": "🟦"}
 _ORDER = ["critical", "high", "medium", "low"]
 
@@ -24,6 +26,14 @@ def render_markdown(report: Dict[str, Any]) -> str:
         lines.append("")
         lines.append("**%d scenario(s) not observable** (the agent did not report what they need to judge)."
                      % s["not_observable"])
+    if s.get("inconclusive"):
+        lines.append("")
+        lines.append("**%d scenario(s) inconclusive** (the attack never reached the agent; not counted as passed)."
+                     % s["inconclusive"])
+    reported = agent_reported(report)
+    if reported:
+        lines.append("")
+        lines.append("Agent reported: %s." % "; ".join(_cell(describe_agent(a)) for a in reported))
     lines.append("")
     if report["findings"]:
         sev = s["by_severity"]

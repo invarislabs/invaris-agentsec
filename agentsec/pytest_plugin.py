@@ -62,5 +62,12 @@ def agentsec_run(agentsec_suite):
         if all(r.status == "not_observable" for r in result.results):
             pytest.skip("AgentSec: %s not observable -- the agent did not report what these scenarios need "
                         "(e.g. which agent acted)" % ", ".join(names))
+        if all(r.status in ("inconclusive", "not_observable") for r in result.results):
+            pytest.skip("AgentSec: %s inconclusive -- the agent never received the adversarial content "
+                        "(e.g. it did not open the poisoned email or page)" % ", ".join(names))
+        if result.inconclusive:
+            import warnings
+            warnings.warn("AgentSec: %d scenario(s) inconclusive (attack never reached the agent): %s"
+                          % (len(result.inconclusive), ", ".join(r.scenario.id for r in result.inconclusive)))
         return result
     return run

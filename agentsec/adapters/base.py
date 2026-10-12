@@ -31,6 +31,28 @@ class AgentReply:
     executed: List[Dict[str, Any]] = field(default_factory=list)
     # Multi-agent systems: which agent wrote `content` (see ToolCall.actor).
     actor: Optional[str] = None
+    # What the agent says about itself (`x_agentsec.agent`), already passed through agent_info().
+    agent: Optional[Dict[str, str]] = None
+
+
+# Keys an agent may report about itself through `x_agentsec.agent`. Anything else (API keys, endpoints,
+# prompts, headers) is dropped, so self-description can never smuggle configuration into a report.
+AGENT_INFO_KEYS = ("name", "version", "backend", "model", "configuration")
+AGENT_INFO_MAX = 120
+
+
+def agent_info(value: Any) -> Optional[Dict[str, str]]:
+    """The allowed, printable, length-capped string fields of a self-description, or None."""
+    if not isinstance(value, dict):
+        return None
+    out: Dict[str, str] = {}
+    for key in AGENT_INFO_KEYS:
+        v = value.get(key)
+        if isinstance(v, str):
+            v = "".join(ch for ch in v if ch.isprintable()).strip()[:AGENT_INFO_MAX]
+            if v:
+                out[key] = v
+    return out or None
 
 
 class AgentAdapter:

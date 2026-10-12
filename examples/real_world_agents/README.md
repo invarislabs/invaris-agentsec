@@ -1,6 +1,10 @@
 # Real-world reference agents
 
-Three more deterministic, rule-based reference agents, in the same spirit as
+Six reference agents modeled on the AI agent products people actually use. Four are deterministic
+and rule-based; two (`email_assistant`, `llm_browser_assistant`) are **LLM-powered**, so every tool
+decision comes from a configurable model rather than from rules.
+
+The rule-based ones are in the same spirit as
 [`examples/vulnerable_rag_agent`](../vulnerable_rag_agent) and [`examples/rag_agent`](../rag_agent),
 but modeled on the *shape* of the AI agent products people actually use every day rather than a
 generic RAG bot: a coding assistant, a customer-support assistant, and a browser-automation
@@ -18,6 +22,18 @@ parsing primitives, and are paired one-to-one with this repo's domain attack pac
 | [`browser_assistant`](browser_assistant) | An agentic browser / computer-use assistant (e.g. Comet, Operator, browser-use agents) | `read_page`, `navigate`, `fill_form` | [`browser_agent_pack.py`](../attack_packs/browser_agent_pack.py) |
 | [`multi_agent_team`](multi_agent_team) | A planner with a researcher and an executor (a CrewAI crew with delegation, an AutoGen group chat, a planner/worker graph); reports which agent acted | `delegate_task`, `search_docs`, `apply_change` | none -- uses `agent_roles` and `multi_agent_delegation` ([Multi-agent testing](../../docs/multi-agent.md)) |
 
+The two LLM-powered assistants are driven by a model backend instead of rules, and each has a
+baseline and a hardened configuration (the hardened one adds a deterministic policy guard that runs
+outside the model). They need no API key to exercise offline (`--backend scripted`):
+
+| Agent | Models | Tools | Attack pack |
+|---|---|---|---|
+| [`email_assistant`](email_assistant) | An autonomous email assistant that triages a mailbox and acts on it | `read_inbox`, `open_email`, `send_email`, `forward_email`, `delete_email` | [`email_agent_pack.py`](../attack_packs/email_agent_pack.py) |
+| [`llm_browser_assistant`](llm_browser_assistant) | A browsing/shopping assistant that reads pages and acts on them | `read_page`, `navigate`, `fill_form`, `submit_form`, `place_order` | the stateful categories in [`browser_agent_pack.py`](../attack_packs/browser_agent_pack.py) |
+
+See [Email and browser packs](../../docs/email-and-browser-packs.md) for their scenarios, CLI
+commands, baseline-vs-hardened comparison and limitations.
+
 ## Running one
 
 ```
@@ -26,7 +42,7 @@ python examples/real_world_agents/coding_assistant/server.py --safe     # harden
 agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
 ```
 
-Same pattern for `support_assistant` (port 8020), `browser_assistant` (port 8030) and `multi_agent_team` (port 8040). Each
+Same pattern for `support_assistant` (port 8020), `browser_assistant` (port 8030), `multi_agent_team` (port 8040), `email_assistant` (port 8060) and `llm_browser_assistant` (port 8050). Each
 `agentsec.yaml` declares that agent's tools, its synthetic secret, its `tool_effects` (see
 [Policy reference](../../docs/policy-reference.md#tool_effects)), and both the built-in categories
 and its matching attack pack's categories, so a single `agentsec test` run exercises the full

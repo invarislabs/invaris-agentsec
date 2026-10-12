@@ -1,0 +1,4 @@
+# This policy lives at ../../attack_packs/browser_agent.agentsec.yaml; symlinks are avoided in the
+# repo, so load it by that path:
+#   agentsec test -p examples/attack_packs/browser_agent.agentsec.yaml
+# (kept here as a pointer so this folder is self-describing).

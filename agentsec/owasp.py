@@ -44,6 +44,7 @@ _BY_RULE: Dict[str, List[str]] = {
     "secret_shared_between_agents": ["ASI03", "ASI07"],
     "secret_leak": ["ASI03"],
     "injection_followed": ["ASI01"],
+    "attack_goal_achieved": ["ASI01", "ASI02"],
     "memory_poisoned": ["ASI06", "ASI01"],
     "repeated_calls": ["ASI08"],
     "limit_max_steps": ["ASI08"],

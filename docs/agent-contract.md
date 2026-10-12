@@ -73,6 +73,22 @@ placed before the reply's text in the trace. They go through the same evaluators
 agents set `agent.declare_tools: false`. Because the calls are real on your side, run them only against sandboxed or
 mocked backends.
 
+### Describe the agent under test
+
+A report cannot know which model or backend made the agent's decisions unless the agent says so. Optionally add
+`x_agentsec.agent` to a reply (or an `"agent"` key to a `CallableAdapter` result):
+
+```json
+"x_agentsec": {"agent": {"name": "email-assistant", "backend": "anthropic", "model": "claude-sonnet-4-5",
+                         "configuration": "hardened", "version": "1.4.0"}}
+```
+
+Only those five string fields are kept (printable characters, at most 120 each); any other key is dropped, and
+configured secrets are masked like everywhere else in the report. Report what actually decided, `"backend":
+"scripted"` for a test double, and never credentials. AgentSec records it on the trace where it first appears or
+changes and lists the distinct values in `run_config.agent_reported`; the terminal output, the Markdown summary and
+the dashboards show it. The reference email and browser assistants report it.
+
 Agents built on a framework that runs its own tool loop can skip the HTTP endpoint: give the framework tools that
 call AgentSec's in-process `ToolHost` and wrap the agent in a `CallableAdapter` (see [Frameworks](frameworks.md#any-other-framework)).
 
@@ -195,7 +211,7 @@ corpus, not from AgentSec's simulated tool result. That is the realistic setup f
 
 ### The real-world reference agents
 
-`examples/real_world_agents/` has three more deterministic, rule-based reference agents, each paired one-to-one with a domain attack pack: `coding_assistant`
+`examples/real_world_agents/` has four more deterministic, rule-based reference agents (plus two LLM-powered ones, below), each paired one-to-one with a domain attack pack: `coding_assistant`
 (an IDE copilot / autonomous coding agent, paired with `coding_agent_pack.py`), `support_assistant` (a help-desk copilot, paired with `support_agent_pack.py`),
 and `browser_assistant` (a browser-automation agent, paired with `browser_agent_pack.py`). They speak the same HTTP contract as the two agents above and share
 a `_common.py` module for the HTTP plumbing and a few parsing primitives, so each `server.py` stays focused on its own domain-specific behavior.
@@ -211,10 +227,16 @@ agentsec test --policy examples/real_world_agents/coding_assistant/agentsec.yaml
 Each one's `agentsec.yaml` wires in the matching attack pack and a `tool_effects` section with data labels (see
 [Policy reference](policy-reference.md#tool_effects)) alongside twelve built-in categories, so
 `agentsec test` runs the full generic + domain-specific suite, including the authorization, composition, claims and
-identity categories, in one pass. Against all three, vulnerable mode currently fails every scenario (147 scenarios,
-147 with findings) and `--safe` passes every scenario (147 of 147), the same clean contrast as the two agents above.
+identity categories, in one pass. Across all three, vulnerable mode currently fails every scenario and `--safe` passes every scenario
+-- 147 scenarios in total (50 for `coding_assistant`, 48 for `support_assistant`, 49 for
+`browser_assistant`), the same clean contrast as the two agents above.
 
-A fourth, `multi_agent_team` (port 8040), is a planner/researcher/executor team that reports which agent acted on
+Two further reference assistants, `email_assistant` (port 8060) and `llm_browser_assistant` (port 8050), are
+**LLM-powered** rather than rule-based: every tool decision comes from a configurable model backend, and each has a
+baseline and a hardened configuration (the hardened one adds a deterministic policy guard outside the model). They
+pair with the email and browser attack packs -- see [Email and browser packs](email-and-browser-packs.md).
+
+A fourth rule-based agent, `multi_agent_team` (port 8040), is a planner/researcher/executor team that reports which agent acted on
 every message and tool call; with `agent_roles` in its policy it runs `multi_agent_delegation` too. Vulnerable fails
 all 38 of its scenarios, `--safe` passes all 38. See [Multi-agent testing](multi-agent.md). See [`examples/real_world_agents/README.md`](../examples/real_world_agents/README.md)
 for what each one models and why, and

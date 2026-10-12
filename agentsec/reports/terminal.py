@@ -4,7 +4,8 @@ from typing import List, Sequence, Union
 
 from ..evaluators import SEVERITIES, severity_rank
 from ..runners import SuiteResult
-from .json_report import _mask_obj
+from ..verdicts import describe_agent
+from .json_report import _mask_obj, agent_reported
 
 _COLORS = {"critical": "\033[1;31m", "high": "\033[31m", "medium": "\033[33m", "low": "\033[36m"}
 _RESET, _BOLD, _DIM = "\033[0m", "\033[1m", "\033[2m"
@@ -29,6 +30,13 @@ def render_terminal(suite: SuiteResult, report_path: Union[str, Sequence[str]] =
     blind = sum(r.status == "not_observable" for r in suite.results)
     if blind:
         lines.append("%d not observable (the agent did not report what these scenarios need to judge)" % blind)
+    untested = sum(r.status == "inconclusive" for r in suite.results)
+    if untested:
+        lines.append("%d inconclusive (the attack never reached the agent; not counted as passed)" % untested)
+    reported = agent_reported(suite)
+    if reported:
+        lines.append(_mask_obj("agent reported: %s" % "; ".join(describe_agent(a) for a in reported),
+                               sorted(suite.policy.resolved_secrets(), key=len, reverse=True)))
     lines.append("")
 
     sensitive = suite.policy.resolved_secrets() + [v for f in findings for v in f.sensitive]

@@ -21,6 +21,58 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 - Docs: the README's future-work section now describes the hosted dashboard: open source (Apache-2.0) at
   `invarislabs/invaris-agentsec-dashboard`, free at launch, with a few paid, private premium features later.
 
+- New: `agentsec.verdicts`, the verdict rules shared by `agentsec compare`, the local dashboard and the hosted
+  dashboard: what counts as tested (only `passed` and `findings`), evaluation metrics over tested scenarios, attack
+  timelines, per-scenario verdict changes, and why a finding is not comparable. Both dashboards use it to show
+  inconclusive scenarios (never as passed), what a run measured, attack timelines, each scenario's declared goals,
+  the agent's self-description (with scripted stand-ins labelled) and per-scenario verdict changes when comparing.
+- New: `report.json` scenario entries carry `delivery` (where the adversarial content first reached the agent) and
+  `attack_goals` (each declared goal and whether it was achieved, `null` when the payload never arrived) for
+  scenarios that use `exposure` / `attack_goals`. Exposure strings and goals' `sensitive_values` are never written.
+  Built-in scenarios and older reports are unchanged.
+- New: agents can describe themselves with `x_agentsec.agent` (`name`, `version`, `backend`, `model`,
+  `configuration`; other keys dropped, values capped and secret-masked), recorded in the trace and in
+  `run_config.agent_reported`, and shown in the terminal and Markdown summaries. The reference email and browser
+  assistants report their backend (including `scripted`) and baseline/hardened configuration.
+- `agentsec compare` no longer calls a finding fixed when its scenario is `not_observable` in the new run (it
+  was already not comparable for `error` and `inconclusive`): the new run could not judge it.
+- `agentsec compare` now also lists scenarios tested in the baseline but not in the new run (coverage lost is not an
+  improvement) and how many scenarios each run tested, in the terminal and in the pull-request Markdown.
+
+- Fixed: the `email_assistant` reference agent defaulted to port 8040, which `multi_agent_team`
+  already uses, so the two could not run side by side. It now defaults to 8060 (its policies, demo,
+  live harness, README and tests updated to match). Examples are not shipped in the wheel, so this
+  does not affect the published package.
+- Docs: repository-wide accuracy pass. The README's category list said eight categories while the
+  same page said thirteen; the test count, reference-agent count and attack-pack count were stale;
+  `agentsec replay`'s `INCONCLUSIVE` outcome and the `exposure` / `attack_goals` / `inconclusive`
+  model were undocumented in the README; `docs/README.md` was missing an index entry for
+  `docs/email-and-browser-packs.md`; and `docs/agent-contract.md`'s "147 scenarios" read as
+  per-agent when it is the total across three agents (50 + 48 + 49).
+
+## 0.8.0
+
+- New: delivery tracking and attack goals for scenarios. `Scenario.exposure` names text only the adversarial content
+  contains; a scenario whose content never reached the agent is reported with the new status `inconclusive` (and
+  `summary.inconclusive`), never as passed. `Scenario.attack_goals` (`AttackGoal`) states what a successful attack
+  does as tool calls; the new default `AttackGoalEvaluator` reports `attack_goal_achieved` only for calls made after
+  the content was delivered. `agentsec.attacks.inject_after()` builds responders that inject at a later step of a
+  multi-step task. Built-in categories do not use these fields and are unchanged. See
+  [Extending](docs/extending.md#track-delivery-attack-goals-and-mid-task-injection).
+- `inconclusive` is handled throughout: terminal, Markdown, HTML and JSON reports; run warnings; `RunResult.inconclusive`
+  (and `RunResult.passed` is false while any scenario is inconclusive); the pytest plugin skips all-inconclusive
+  categories; `agentsec compare` does not call a finding fixed when its scenario is inconclusive in the new run;
+  `agentsec replay` reports such findings as `INCONCLUSIVE` and exits 2 when nothing reproduced but something was
+  inconclusive.
+
+- New examples (not shipped in the wheel): realistic indirect prompt-injection **attack packs** for email and
+  browser agents (`examples/attack_packs/email_agent_pack.py`, and the stateful browsing categories in
+  `examples/attack_packs/browser_agent_pack.py`), each covering several DOM/message injection surfaces and using
+  the delivery-tracking and attack-goal features above. New **reference LLM-powered assistants**
+  (`examples/real_world_agents/email_assistant/`, `examples/real_world_agents/llm_browser_assistant/`) with a
+  pluggable backend layer (Anthropic / OpenAI-compatible / scripted), baseline and hardened configurations, and an
+  optional live-model evaluation harness. See [docs/email-and-browser-packs.md](docs/email-and-browser-packs.md).
+
 ## 0.7.0
 
 - Docs: `docs/testing.md` now lists everything that has not been tested yet (other real agents, Claude Code's
