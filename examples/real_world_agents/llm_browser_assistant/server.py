@@ -358,6 +358,8 @@ def make_server(assistant: BrowserAssistant, port: int = 8050,
                           "total_tokens": prompt_tokens + completion_tokens}}
             if reply.get("_events"):
                 payload["x_agentsec"] = {"events": reply["_events"]}
+            payload.setdefault("x_agentsec", {})["agent"] = llm.describe(
+                assistant.backend, "llm-browser-assistant", assistant.hardened)
             self._send(200, payload)
 
         def _send(self, status: int, payload: Dict[str, Any]) -> None:

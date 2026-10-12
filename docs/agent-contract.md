@@ -73,6 +73,22 @@ placed before the reply's text in the trace. They go through the same evaluators
 agents set `agent.declare_tools: false`. Because the calls are real on your side, run them only against sandboxed or
 mocked backends.
 
+### Describe the agent under test
+
+A report cannot know which model or backend made the agent's decisions unless the agent says so. Optionally add
+`x_agentsec.agent` to a reply (or an `"agent"` key to a `CallableAdapter` result):
+
+```json
+"x_agentsec": {"agent": {"name": "email-assistant", "backend": "anthropic", "model": "claude-sonnet-4-5",
+                         "configuration": "hardened", "version": "1.4.0"}}
+```
+
+Only those five string fields are kept (printable characters, at most 120 each); any other key is dropped, and
+configured secrets are masked like everywhere else in the report. Report what actually decided, `"backend":
+"scripted"` for a test double, and never credentials. AgentSec records it on the trace where it first appears or
+changes and lists the distinct values in `run_config.agent_reported`; the terminal output, the Markdown summary and
+the dashboards show it. The reference email and browser assistants report it.
+
 Agents built on a framework that runs its own tool loop can skip the HTTP endpoint: give the framework tools that
 call AgentSec's in-process `ToolHost` and wrap the agent in a `CallableAdapter` (see [Frameworks](frameworks.md#any-other-framework)).
 

@@ -109,6 +109,7 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
     start = clock()
     usage = trace.usage
     multi = bool(scenario.followups)
+    reported: List[Any] = [None]     # last x_agentsec.agent recorded in this trace
     base_session = "agentsec-%s-%s" % (run_id or "local", scenario.id.replace("/", "-"))
 
     def now_ms() -> int:
@@ -192,8 +193,13 @@ def run_scenario(scenario: Scenario, policy: Policy, adapter: AgentAdapter,
                 if ev.get("result") is not None:
                     add("tool_result", phase, tool_name=ev["name"], content=str(ev["result"]),
                         meta=dict(who, executed_by_agent=True))
-            add("assistant_message", phase, content=reply.content or "",
-                meta=_who(getattr(reply, "actor", None), None))
+            meta = _who(getattr(reply, "actor", None), None)
+            agent = getattr(reply, "agent", None)
+            if agent and agent != reported[0]:
+                # The agent's self-description (x_agentsec.agent), recorded where it first appears or changes.
+                meta["agent"] = dict(agent)
+                reported[0] = agent
+            add("assistant_message", phase, content=reply.content or "", meta=meta)
 
             if host is not None and reply.executed:
                 # The agent ran its tool loop itself, so the budget can only be checked afterwards.

@@ -5,6 +5,24 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+- New: `agentsec.verdicts`, the verdict rules shared by `agentsec compare`, the local dashboard and the hosted
+  dashboard: what counts as tested (only `passed` and `findings`), evaluation metrics over tested scenarios, attack
+  timelines, per-scenario verdict changes, and why a finding is not comparable. Both dashboards use it to show
+  inconclusive scenarios (never as passed), what a run measured, attack timelines, each scenario's declared goals,
+  the agent's self-description (with scripted stand-ins labelled) and per-scenario verdict changes when comparing.
+- New: `report.json` scenario entries carry `delivery` (where the adversarial content first reached the agent) and
+  `attack_goals` (each declared goal and whether it was achieved, `null` when the payload never arrived) for
+  scenarios that use `exposure` / `attack_goals`. Exposure strings and goals' `sensitive_values` are never written.
+  Built-in scenarios and older reports are unchanged.
+- New: agents can describe themselves with `x_agentsec.agent` (`name`, `version`, `backend`, `model`,
+  `configuration`; other keys dropped, values capped and secret-masked), recorded in the trace and in
+  `run_config.agent_reported`, and shown in the terminal and Markdown summaries. The reference email and browser
+  assistants report their backend (including `scripted`) and baseline/hardened configuration.
+- `agentsec compare` no longer calls a finding fixed when its scenario is `not_observable` in the new run (it
+  was already not comparable for `error` and `inconclusive`): the new run could not judge it.
+- `agentsec compare` now also lists scenarios tested in the baseline but not in the new run (coverage lost is not an
+  improvement) and how many scenarios each run tested, in the terminal and in the pull-request Markdown.
+
 - Fixed: the `email_assistant` reference agent defaulted to port 8040, which `multi_agent_team`
   already uses, so the two could not run side by side. It now defaults to 8060 (its policies, demo,
   live harness, README and tests updated to match). Examples are not shipped in the wheel, so this

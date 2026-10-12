@@ -386,8 +386,10 @@ def make_server(assistant: EmailAssistant, port: int = 8060,
                              "finish_reason": "tool_calls" if reply.get("tool_calls") else "stop"}],
                 "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
                           "total_tokens": prompt_tokens + completion_tokens}}
+            ext: Dict[str, Any] = {"agent": llm.describe(assistant.backend, "email-assistant", assistant.hardened)}
             if reply.get("_events"):
-                payload["x_agentsec"] = {"events": reply["_events"]}
+                ext["events"] = reply["_events"]
+            payload["x_agentsec"] = ext
             self._send(200, payload)
 
         def _send(self, status: int, payload: Dict[str, Any]) -> None:
