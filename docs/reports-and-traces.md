@@ -11,7 +11,8 @@
 | `markdown` | `summary.md` | A compact table of findings, used for the GitHub job summary |
 | `sarif` | `results.sarif` | SARIF 2.1.0, for [GitHub Code Scanning](github-actions.md#github-code-scanning-sarif) and other SARIF viewers |
 
-`agentsec replay` writes its own `report.json` to `.agentsec/replay/`.
+`agentsec replay` writes its own `report.json` to `.agentsec/replay/`. To browse any of these reports in a local web UI, run
+`agentsec dashboard`; see [Dashboard](dashboard.md).
 
 ## `report.json`
 
