@@ -3,7 +3,7 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/); while the
 version is below 1.0, minor releases may change behaviour, and the changes are listed below.
 
-## Unreleased
+## 0.9.0
 
 - New: `agentsec dashboard`, a local, read-only web dashboard over the report files AgentSec already writes
   (`report.json`, `mcp-report.json`). Overview with a per-scenario grid by attack category, OWASP ASI01-ASI10
