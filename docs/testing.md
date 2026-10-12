@@ -9,7 +9,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-All 555 tests should pass in under a minute. 37 more are skipped by default: 36 live-model tests (they need a real backend -- `AGENTSEC_LLM_*` plus `AGENTSEC_RUN_LIVE_LLM=1`) and the LangGraph integration test (it needs the optional LangGraph extra). They need no network access or API keys. The end-to-end tests start the reference agent
+All 567 tests should pass in under a minute. 37 more are skipped by default: 36 live-model tests (they need a real backend -- `AGENTSEC_LLM_*` plus `AGENTSEC_RUN_LIVE_LLM=1`) and the LangGraph integration test (it needs the optional LangGraph extra). They need no network access or API keys. The end-to-end tests start the reference agent
 on a random local port inside the test process.
 
 Useful variations:
@@ -37,6 +37,7 @@ the entry point was added. To use the plugin in your own projects, install the p
 | `tests/test_rag_example.py` | The RAG reference agent: retrieval ranking, the example policy, the vulnerable agent caught through server-side `x_agentsec` events (critical `send_email` findings from the poisoned document, restricted runbook content and the system-prompt key leaking), the safe agent passing with only `search_documents` in its outbox, the `/outbox` endpoint, and secret masking |
 | `tests/test_action_scripts.py` | The GitHub Action's helper scripts run for real against the reference agents (full cycle, safe agent, unreachable agent, bad policy, early exit, timeout, process-tree kill) and structural checks of `action.yml` and the CI workflow (inputs used and declared, no inputs interpolated into scripts, output names) |
 | `tests/test_compare.py` | `agentsec compare`: new, fixed, unchanged and severity changes, missing or errored scenarios never counted as fixed, seed and policy warnings, CLI exit codes |
+| `tests/test_report_verdict_metadata.py` | `report.json` `delivery` and `attack_goals` (delivered, not delivered, victim values never written, built-in scenarios unchanged), `x_agentsec.agent` filtering, capping and masking over HTTP and `CallableAdapter`, the reference email assistant reporting a scripted backend, `agentsec.verdicts`, and `agentsec compare` listing untested scenarios instead of calling them fixed |
 | `tests/test_streaming_and_callable.py` | SSE parsing (text, fragmented tool calls, usage, `x_agentsec` events, malformed streams), the `stream` policy option, the RAG agent streaming with findings identical to non-streaming, and `CallableAdapter` return shapes, crashes and use through the Python API |
 | `tests/test_mcp.py` | MCP checks (poisoning, schema injection, invisible characters, shadowing, policy rules, near misses that must stay clean), pins and rug pulls, stdio and HTTP transports (pagination, sessions, SSE, errors), the `mcp scan` CLI, and terminal sanitising |
 | `tests/test_mcp_host.py` | AgentSec as the MCP server: protocol and recording, the vulnerable MCP-connected reference agent caught (critical findings, tool-call budget), the safe one passing every scenario, no tools declared in requests, and the `--mcp-listen` CLI (bad value, busy port) |

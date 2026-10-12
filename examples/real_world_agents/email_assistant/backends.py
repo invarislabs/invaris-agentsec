@@ -65,6 +65,17 @@ class LLMBackend:
 # Test double
 # ---------------------------------------------------------------------------
 
+def describe(backend: "LLMBackend", name: str, hardened: bool) -> Dict[str, str]:
+    """What this assistant reports about itself to AgentSec (`x_agentsec.agent`): which backend and
+    model actually made the decisions -- "scripted" for a test double -- and never any credential."""
+    info = {"name": name, "backend": getattr(backend, "name", "unknown"),
+            "configuration": "hardened" if hardened else "baseline"}
+    model = getattr(backend, "model", None)
+    if isinstance(model, str) and model:
+        info["model"] = model
+    return info
+
+
 class ScriptedBackend(LLMBackend):
     """Replays decisions. NOT a model.
 

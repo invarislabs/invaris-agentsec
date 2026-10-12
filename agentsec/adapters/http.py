@@ -10,6 +10,11 @@ Optional extension for agents that run tools server-side:
                  "events": [{"name": "send_email", "arguments": {...}, "result": "...",
                              "actor": "executor", "delegated_by": "planner"}]}
 
+Optional self-description, recorded in the report (only these string fields; anything else is dropped):
+  "x_agentsec": {"agent": {"name", "version", "backend", "model", "configuration"}}
+  e.g. {"backend": "anthropic", "model": "claude-sonnet-4-5", "configuration": "hardened"}. Report what
+  actually made the decisions -- "scripted" for a test double -- and never credentials.
+
 Optional extension for multi-agent systems, so AgentSec can attribute each action to an agent:
   message "x_agentsec": {"actor": "planner"}                      (who wrote the message)
   tool call "x_agentsec": {"actor": "researcher", "delegated_by": "planner"}
@@ -23,7 +28,7 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 
 from ..policies import AgentConfig
-from .base import AdapterError, AgentAdapter, AgentReply, ToolCall
+from .base import AdapterError, AgentAdapter, AgentReply, ToolCall, agent_info
 
 
 class HTTPAgentAdapter(AgentAdapter):
@@ -104,6 +109,8 @@ class HTTPAgentAdapter(AgentAdapter):
                 x = chunk["x_agentsec"]
                 if "cost_usd" in x:
                     ext["cost_usd"] = x["cost_usd"]
+                if isinstance(x.get("agent"), dict):
+                    ext["agent"] = x["agent"]
                 events.extend(e for e in (x.get("events") or []) if isinstance(e, dict))
             for choice in chunk.get("choices") or []:
                 delta = (choice or {}).get("delta") or {}
@@ -172,6 +179,7 @@ class HTTPAgentAdapter(AgentAdapter):
         ext = payload.get("x_agentsec") or {}
         cost = ext.get("cost_usd", usage.get("cost_usd"))
         reply.cost_usd = float(cost) if isinstance(cost, (int, float)) else None
+        reply.agent = agent_info(ext.get("agent")) if isinstance(ext, dict) else None
         for ev in ext.get("events") or []:
             if isinstance(ev, dict) and ev.get("name"):
                 reply.executed.append(ev)

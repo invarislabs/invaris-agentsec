@@ -6,6 +6,11 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from .evaluators import severity_rank
+from .verdicts import TESTED, evaluation, verdict_changes
+
+# Statuses under which a new run says nothing about a baseline finding: the scenario errored, its attack was
+# never delivered, or the agent did not report what the scenario needs to be judged.
+NOT_MEASURED = ("error", "inconclusive", "not_observable")
 
 
 class CompareError(Exception):
@@ -32,6 +37,16 @@ class Comparison:
     better: List[Dict[str, Any]] = field(default_factory=list)     # severity went down
     not_comparable: List[Dict[str, Any]] = field(default_factory=list)  # scenario not (cleanly) rerun
     warnings: List[str] = field(default_factory=list)
+    # Per-scenario verdict changes and what each run measured (agentsec.verdicts); the same data the
+    # local and hosted dashboards show, so all three agree.
+    verdict_changes: List[Dict[str, Any]] = field(default_factory=list)
+    base_evaluation: Dict[str, Any] = field(default_factory=dict)
+    head_evaluation: Dict[str, Any] = field(default_factory=dict)
+
+    def untested(self) -> List[Dict[str, Any]]:
+        """Scenarios tested in the baseline that the new run did not test (inconclusive, error, not
+        observable or missing): coverage lost, which is never an improvement."""
+        return [x for x in self.verdict_changes if x["base"] in TESTED and x["head"] not in TESTED]
 
     def regressions(self, min_severity: str = "low") -> List[Dict[str, Any]]:
         floor = severity_rank(min_severity)
@@ -71,11 +86,17 @@ def compare(base: Dict[str, Any], head: Dict[str, Any]) -> Comparison:
         if fid in h_f:
             continue
         sc = h_sc.get(f["scenario_id"])
-        if sc is None or sc.get("status") in ("error", "inconclusive"):
-            out.not_comparable.append(f)   # cannot claim it was fixed: the attack did not run
+        if sc is None or sc.get("status") in NOT_MEASURED:
+            out.not_comparable.append(f)   # cannot claim it was fixed: the new run measured nothing there
         else:
             out.fixed.append(f)
+    out.verdict_changes = verdict_changes(base, head)
+    out.base_evaluation, out.head_evaluation = evaluation(base), evaluation(head)
     return out
+
+
+def _status_name(status: Any) -> str:
+    return "missing" if status is None else str(status).replace("_", " ")
 
 
 def render(c: Comparison) -> str:
@@ -97,9 +118,20 @@ def render(c: Comparison) -> str:
     block("Fixed", c.fixed, "-")
     block("Severity decreased", c.better, "v")
     block("Unchanged", c.unchanged, "=")
-    block("Not comparable (scenario missing, errored or inconclusive in the new run)", c.not_comparable, "?")
+    block("Not comparable (scenario missing, errored, inconclusive or not observable in the new run)", c.not_comparable, "?")
+    lost = c.untested()
+    if lost:
+        lines.append("Not tested in the new run (%d), so not an improvement" % len(lost))
+        for x in lost:
+            lines.append("  ! %s -> %s  [%s]" % (x["base"], _status_name(x["head"]), x["id"]))
+        lines.append("")
     lines.append("%d new, %d worse, %d fixed, %d better, %d unchanged" % (
         len(c.new), len(c.worse), len(c.fixed), len(c.better), len(c.unchanged)))
+    if c.base_evaluation and c.head_evaluation:
+        b, h = c.base_evaluation, c.head_evaluation
+        lines.append("tested %d -> %d of %d -> %d scenarios; inconclusive %d -> %d; %d scenario verdict(s) changed" % (
+            b["tested"], h["tested"], b["scenarios"], h["scenarios"], b["inconclusive"], h["inconclusive"],
+            len(c.verdict_changes)))
     return "\n".join(lines)
 
 
@@ -117,6 +149,11 @@ def render_markdown(c: Comparison, baseline_label: str = "baseline", current_lab
                          ("Severity decreased", c.better), ("Unchanged", c.unchanged),
                          ("Not comparable", c.not_comparable)):
         lines.append("| %s | %d |" % (label, len(items)))
+    if c.base_evaluation and c.head_evaluation:
+        lines.append("| Tested scenarios | %d → %d |" % (c.base_evaluation["tested"], c.head_evaluation["tested"]))
+        if c.base_evaluation["inconclusive"] or c.head_evaluation["inconclusive"]:
+            lines.append("| Inconclusive scenarios | %d → %d |" % (c.base_evaluation["inconclusive"],
+                                                              c.head_evaluation["inconclusive"]))
     lines.append("")
 
     def section(title: str, items: List[Dict[str, Any]]) -> None:
@@ -135,6 +172,17 @@ def render_markdown(c: Comparison, baseline_label: str = "baseline", current_lab
     section("Severity increased", c.worse)
     section("Fixed", c.fixed)
     section("Severity decreased", c.better)
+    lost = c.untested()
+    if lost:
+        lines.append("<details open>")
+        lines.append("<summary>Not tested in the current run (%d)</summary>" % len(lost))
+        lines.append("")
+        for x in lost:
+            lines.append("- `%s`: %s → %s (the attack was not measured; not an improvement)"
+                         % (x["id"], x["base"], _status_name(x["head"])))
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
     if not (c.new or c.worse or c.fixed):
         lines.append("No new or worsened findings.")
     return "\n".join(lines)
