@@ -30,6 +30,7 @@ Homepage = "https://github.com/invarislabs/invaris-agentsec"
 Documentation = "https://github.com/invarislabs/invaris-agentsec/tree/main/docs"
 Issues = "https://github.com/invarislabs/invaris-agentsec/issues"
 Changelog = "https://github.com/invarislabs/invaris-agentsec/blob/main/CHANGELOG.md"
+Website = "https://www.invarislabs.com/"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "jsonschema>=4"]

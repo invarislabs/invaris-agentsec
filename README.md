@@ -480,10 +480,11 @@ trademarks of Invaris Labs and are not covered by that license; see [NOTICE](NOT
 
 ## About Invaris Labs
 
-Invaris Labs is building the security infrastructure for autonomous AI agents.
+Invaris Labs is building the security infrastructure for autonomous AI agents. Learn more at [invarislabs.com](https://www.invarislabs.com/).
 
 ## Contact
 
+- Website: [www.invarislabs.com](https://www.invarislabs.com/)
 - Email: [arunimachaudhuri2020@gmail.com](mailto:arunimachaudhuri2020@gmail.com)
 - GitHub: [github.com/tinniaru3005](https://github.com/tinniaru3005)
 - LinkedIn: [Arunima Chaudhuri](https://www.linkedin.com/in/arunima-chaudhuri/)
