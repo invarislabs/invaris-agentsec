@@ -10,11 +10,19 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Keep the job names "test (3.x)" regardless of the runner, so required status checks still match.
+    name: test (${{ matrix.python-version }})
+    runs-on: ${{ matrix.os || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
+        include:
+          # ubuntu-latest now resolves to Ubuntu 26.04, which has no prebuilt Python 3.9 for
+          # actions/setup-python ("The version '3.9' ... was not found for Ubuntu 26.04").
+          # Run 3.9 on 24.04 for as long as we support it (requires-python >= 3.9).
+          - python-version: "3.9"
+            os: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
