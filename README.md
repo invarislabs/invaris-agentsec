@@ -2,13 +2,16 @@
 
 **Adversarial security and reliability testing for autonomous AI agents.**
 
-Invaris AgentSec is an open-source testing framework for finding unsafe, unauthorized, and unreliable agent behaviour before it reaches production. It helps developers test complete agent workflows involving LLMs, retrieval pipelines, memory, MCP servers, external tools, databases, and sensitive actions.
+Invaris AgentSec is an open-source testing framework for finding unsafe, unauthorized, and unreliable agent behaviour before it reaches production. 
+It helps developers test complete agent workflows involving LLMs, retrieval pipelines, memory, MCP servers, external tools, databases, and sensitive actions.
 
 The goal is simple: make testing an AI agent as repeatable and developer-friendly as testing an API.
 
 ## Why AgentSec?
 
-Traditional software follows explicitly written execution paths. AI agents interpret untrusted inputs, select tools, retain memory, and make decisions dynamically. A single indirect prompt injection or poisoned tool response can cause an agent to:
+Traditional software follows explicitly written execution paths. 
+AI agents interpret untrusted inputs, select tools, retain memory, and make decisions dynamically. 
+A single indirect prompt injection or poisoned tool response can cause an agent to:
 
 - expose confidential information;
 - invoke an unauthorized tool;
