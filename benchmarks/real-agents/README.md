@@ -1,5 +1,22 @@
 # Real agents over MCP
 
+## Try it on your agent
+
+The scenarios used in the Claude Code run below are the same ones AgentSec runs against any agent:
+
+```bash
+pip install invaris-agentsec
+agentsec init    # writes a starter agentsec.yaml: set agent.endpoint to your agent's URL
+agentsec test    # runs the scenarios, writes .agentsec/report.html
+```
+
+If your agent gets its tools over MCP, run `agentsec test --mcp-listen 127.0.0.1:8765` and point the agent's MCP
+config at that address. That is how Claude Code was tested here (see [MCP testing](../../docs/mcp-testing.md)).
+Found an issue in your agent, or a false positive in AgentSec?
+[Open an issue](https://github.com/invarislabs/invaris-agentsec/issues).
+
+## How this benchmark works
+
 AgentSec's MCP attack host (`agentsec test --mcp-listen`, `agentsec.mcp.MCPAttackHost`) lets AgentSec *be* the MCP
 server an agent connects to. Every tool the agent sees is simulated by AgentSec; the agent, its model and its tool
 loop are real.
