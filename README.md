@@ -2,6 +2,22 @@
 
 **Adversarial security and reliability testing for autonomous AI agents.**
 
+<p align="center">
+  <img src="docs/assets/agentsec-demo.gif" alt="AgentSec run against the bundled vulnerable demo agent (43 findings), then against its hardened --safe variant (35 of 35 passed)" width="800">
+</p>
+
+Real output, not a mock-up: against the bundled vulnerable demo agent, 0 of 35 scenarios pass and AgentSec reports 43 findings. The hardened `--safe` variant of the same agent passes all 35. Reproduce it with the commands under [Try It](#try-it).
+
+### Quick start
+
+```bash
+pip install invaris-agentsec
+agentsec init    # writes a starter agentsec.yaml: set agent.endpoint to your agent's URL
+agentsec test    # runs the scenarios, writes .agentsec/report.html
+```
+
+Your agent needs an HTTP endpoint AgentSec can call (see the [agent contract](docs/agent-contract.md)). Agents that use MCP tools can run `agentsec test --mcp-listen 127.0.0.1:8765` instead, so AgentSec acts as the MCP server ([MCP testing](docs/mcp-testing.md)). See AgentSec run against a real agent in the [Claude Code benchmark](benchmarks/real-agents/README.md).
+
 Invaris AgentSec is an open-source testing framework for finding unsafe, unauthorized, and unreliable agent behaviour before it reaches production. 
 It helps developers test complete agent workflows involving LLMs, retrieval pipelines, memory, MCP servers, external tools, databases, and sensitive actions.
 
