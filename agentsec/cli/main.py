@@ -4,28 +4,49 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import List, Optional
+from urllib.parse import urlsplit
 
 from .. import __version__
-from ..adapters import HTTPAgentAdapter
+from ..adapters import AdapterError, AgentAdapter, HTTPAgentAdapter
 from ..compare import CompareError, compare, load as load_compare_report, render as render_compare
 from ..evaluators import SEVERITIES, severity_rank
 from ..mcp import (MCPError, build_mcp_report, compare_pins, connect_http, connect_stdio, make_pins,
                    render_mcp_terminal, scan_prompts, scan_resources, scan_tools)
 from ..mcp.report import write_mcp_report
-from ..policies import PolicyError, load_policy, policy_json_schema
+from ..policies import Policy, PolicyError, load_policy, policy_json_schema
 from ..reports import (FORMATS, annotations, append_step_summary, in_github_actions,
                        render_markdown, render_terminal, write_reports)
+from ..reports.github import _escape_data as escape_annotation
 from ..runners import load_report, replay, run_suite
 from ..traces import trace_json_schema
 
 EXIT_OK, EXIT_FINDINGS, EXIT_ERROR = 0, 1, 2
 
+AGENT_CONTRACT_URL = "https://github.com/invarislabs/invaris-agentsec/blob/main/docs/agent-contract.md"
+
+# What `agentsec init` writes for agent.endpoint. The `.example` top-level domain is reserved
+# (RFC 2606), so no real agent can live there and `agentsec test` can safely refuse it.
+PLACEHOLDER_ENDPOINT = "https://your-agent.example/v1/chat/completions"
+
+# Sent once before the suite to check the agent answers; its own session keeps it out of scenario memory.
+PREFLIGHT_MESSAGE = "AgentSec connectivity check before the test run. Please reply with a short acknowledgement."
+PREFLIGHT_SESSION = "agentsec-preflight"
+# One retry, so an agent that is still starting up (cold start, a single 503) is not reported as down.
+PREFLIGHT_ATTEMPTS = 2
+PREFLIGHT_RETRY_DELAY_S = 2.0
+
+
+class AgentUnavailable(Exception):
+    """`agentsec test` cannot start against the agent; the message says why."""
+
 INIT_POLICY = """version: "1"
 
 agent:
   name: my-agent
-  endpoint: http://localhost:8000/v1/chat/completions
+  # Replace with your agent's URL. See the agent contract: {contract}
+  endpoint: {endpoint}
 
 allowed_tools:
   - search_documents
@@ -52,7 +73,7 @@ tests:
   - tool_output_poisoning
   - unsafe_retrieved_documents
   - loop_and_budget_limits
-"""
+""".format(contract=AGENT_CONTRACT_URL, endpoint=PLACEHOLDER_ENDPOINT)
 
 
 def _parse_formats(text: str) -> List[str]:
@@ -61,6 +82,39 @@ def _parse_formats(text: str) -> List[str]:
     if bad or not formats:
         raise PolicyError("--format must be a comma-separated list of: %s" % ", ".join(FORMATS))
     return formats
+
+
+def _is_placeholder(endpoint: str) -> bool:
+    host = (urlsplit(endpoint).hostname or "").lower()
+    return host == "example" or host.endswith(".example")
+
+
+def _agent_endpoint_problem(policy: Policy, adapter: AgentAdapter, policy_path: str) -> Optional[str]:
+    """Why `agentsec test` cannot start against this agent, or None when it can: the endpoint is
+    still the `agentsec init` placeholder, or one preflight request to it fails."""
+    endpoint = policy.agent.endpoint
+    if _is_placeholder(endpoint):
+        return ("agent.endpoint is still the placeholder %s. Set agent.endpoint in %s to your agent's URL."
+                % (endpoint, policy_path))
+    for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
+        try:
+            adapter.chat([{"role": "user", "content": PREFLIGHT_MESSAGE}], tools=[], session=PREFLIGHT_SESSION)
+            return None
+        except AdapterError as exc:
+            error = exc
+        if attempt < PREFLIGHT_ATTEMPTS:
+            time.sleep(PREFLIGHT_RETRY_DELAY_S)
+    return "the agent at %s did not answer a preflight request: %s" % (endpoint, error)
+
+
+def _report_agent_unavailable(problem: str) -> None:
+    message = ("error: %s\nNo scenarios were run. The agent contract describes the request and reply "
+               "AgentSec expects: %s" % (problem, AGENT_CONTRACT_URL))
+    print(message, file=sys.stderr)
+    if in_github_actions():
+        print("::error title=AgentSec could not reach the agent::%s" % escape_annotation(message))
+        append_step_summary("**AgentSec could not start:** %s\n\nNo scenarios were run. See the "
+                            "[agent contract](%s).\n" % (problem, AGENT_CONTRACT_URL))
 
 
 def _cmd_test(args: argparse.Namespace) -> int:
@@ -92,9 +146,19 @@ def _cmd_test(args: argparse.Namespace) -> int:
             raise PolicyError("cannot listen on %s: %s" % (args.mcp_listen, exc))
         print("AgentSec MCP host listening at %s (point your agent's MCP client here)" % host.url,
               file=sys.stderr)
+    def preflight() -> None:
+        # Runs inside run_suite: after the scenario selection is validated, so a typo in `-s` is
+        # reported first, and after the MCP host starts, since an agent wired to it may need it to answer.
+        problem = _agent_endpoint_problem(policy, adapter, args.policy)
+        if problem:
+            raise AgentUnavailable(problem)
+
     try:
         suite = run_suite(policy, adapter, seed=args.seed, only=only, progress=progress, judge=args.judge,
-                          host=host, attack_packs=extra_packs)
+                          host=host, attack_packs=extra_packs, preflight=preflight)
+    except AgentUnavailable as exc:
+        _report_agent_unavailable(str(exc))
+        return EXIT_ERROR
     finally:
         if host is not None:
             host.stop()
