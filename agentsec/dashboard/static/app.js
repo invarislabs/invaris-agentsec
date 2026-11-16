@@ -882,7 +882,7 @@
     list.forEach(function (f) {
       append(listEl, h("a", { class: "item" + (selected && f.id === selected.id ? " active" : ""), href: hashFor({ id: r.id, tab: "findings", sub: f.id, q: r.q }),
         "aria-current": selected && f.id === selected.id ? "true" : null },
-        h("div", { class: "item-top" }, sevLabel(f.severity), h("span", { class: "muted", style: "font-size:12px" }, f.category)),
+        h("div", { class: "item-top" }, sevLabel(f.severity), f.irreversible ? irreversibleTag() : null, h("span", { class: "muted", style: "font-size:12px" }, f.category)),
         h("div", { class: "item-title" }, f.title),
         h("div", { class: "item-sub", title: f.id }, f.scenario_id)));
     });
@@ -894,10 +894,15 @@
     return wrap;
   }
 
+  function irreversibleTag() {
+    return h("span", { class: "tag irreversible", title: "A call in this finding cannot be undone" }, "Irreversible");
+  }
+
   function findingDetail(data, f) {
     var id = data.entry.id;
     var meta = h("div", { class: "meta" }, sevLabel(f.severity), h("span", { class: "tag" }, h("code", null, f.rule)),
       h("span", { class: "tag" }, f.category),
+      f.irreversible ? irreversibleTag() : null,
       (f.owasp || []).map(function (o) { return h("span", { class: "tag accent", title: o.name }, o.id + " " + o.name); }),
       f.source === "model-assisted" ? h("span", { class: "tag warn" }, "Model-assisted" + (f.confidence !== undefined ? ", confidence " + f.confidence : "")) : null);
     var d = h("article", { class: "detail", "aria-label": "Finding detail" },
@@ -1069,7 +1074,7 @@
     if (findings.length) {
       append(d, block("Findings", h("div", null, findings.map(function (f) {
         return h("div", { style: "display:flex;gap:10px;align-items:baseline;padding:3px 0" }, sevLabel(f.severity),
-          h("a", { href: hashFor({ id: id, tab: "findings", sub: f.id }) }, f.title));
+          h("a", { href: hashFor({ id: id, tab: "findings", sub: f.id }) }, f.title), f.irreversible ? irreversibleTag() : null);
       }))));
     }
     var phases = {};
@@ -1282,7 +1287,7 @@
       append(detail, block("Description as the server sends it", sel.description ? h("div", { class: "quote" }, sel.description) : h("p", { class: "muted" }, sel.kind === "removed" ? "No longer listed by the server." : "No description.")));
       var fs = data.report.findings.filter(function (f) { return f.scenario_id === sel.id; }).sort(bySeverity);
       append(detail, block("Findings", fs.length ? fs.map(function (f) {
-        return h("div", { style: "display:flex;gap:10px;align-items:baseline;padding:3px 0" }, sevLabel(f.severity), h("a", { href: hashFor({ id: r.id, tab: "findings", sub: f.id }) }, f.title));
+        return h("div", { style: "display:flex;gap:10px;align-items:baseline;padding:3px 0" }, sevLabel(f.severity), h("a", { href: hashFor({ id: r.id, tab: "findings", sub: f.id }) }, f.title), f.irreversible ? irreversibleTag() : null);
       }) : h("p", { class: "muted" }, "No check matched this definition.")));
     }
     return h("div", { class: "split" }, left, detail);
@@ -1403,7 +1408,7 @@
         var href = hashFor({ id: reportId, tab: "findings", sub: f.id });
         return h("tr", { class: "link", onclick: function () { location.hash = href; } },
           h("td", null, sevLabel(f.severity), f.previous_severity ? h("div", { class: "sevchange" }, "was " + f.previous_severity) : null),
-          h("td", null, h("a", { href: href }, f.title), h("div", { class: "item-sub" }, f.scenario_id + (f.reason ? ", " + (NOT_COMPARABLE_WHY[f.reason] || f.reason) : ""))),
+          h("td", null, h("a", { href: href }, f.title), f.irreversible ? [" ", irreversibleTag()] : null, h("div", { class: "item-sub" }, f.scenario_id + (f.reason ? ", " + (NOT_COMPARABLE_WHY[f.reason] || f.reason) : ""))),
           h("td", null, h("code", null, f.rule)));
       }));
       var det = h("details", { class: "section", open: open ? "open" : null },
