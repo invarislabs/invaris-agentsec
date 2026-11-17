@@ -78,6 +78,14 @@ placed before the reply's text in the trace. They go through the same evaluators
 agents set `agent.declare_tools: false`. Because the calls are real on your side, run them only against sandboxed or
 mocked backends.
 
+### What AgentSec can and can't observe
+
+| How a tool call happens | What AgentSec can observe |
+|---|---|
+| AgentSec plays the tool (HTTP tool declarations or MCP mode) | Full control: the call is simulated by AgentSec, and nothing real is touched |
+| The agent runs the tool itself and reports it in `x_agentsec.events` | Recorded only: AgentSec sees the report, but the call really executed on the agent's side |
+| The agent runs the tool itself and does not report it | Not observable: AgentSec cannot see the call at all |
+
 ### Describe the agent under test
 
 A report cannot know which model or backend made the agent's decisions unless the agent says so. Optionally add
