@@ -137,3 +137,23 @@ def test_github_actions_gets_an_annotation_and_a_summary(tmp_path, capsys, monke
     assert code == EXIT_ERROR
     assert "::error title=AgentSec could not reach the agent::" in capsys.readouterr().out
     assert "AgentSec could not start" in summary.read_text()
+
+
+def test_no_preflight_runs_scenarios_without_probe(tmp_path, stub_agent):
+    policy = tmp_path / "agentsec.yaml"
+    policy.write_text(policy_with("  endpoint: %s" % stub_agent.url))
+    out = tmp_path / "out"
+    assert main(["test", "-p", str(policy), "-o", str(out), "--no-preflight",
+                 "-s", "prompt_injection/ignore_previous"]) == 0
+    assert stub_agent.requests
+    assert all(r.get("user") != PREFLIGHT_SESSION for r in stub_agent.requests)
+    assert (out / "report.json").exists()
+
+
+def test_no_preflight_still_rejects_placeholder(tmp_path, capsys):
+    policy = tmp_path / "agentsec.yaml"
+    assert main(["init", str(policy)]) == 0
+    out = tmp_path / "out"
+    assert main(["test", "-p", str(policy), "-o", str(out), "--no-preflight"]) == EXIT_ERROR
+    assert "still the placeholder" in capsys.readouterr().err
+    assert not out.exists()

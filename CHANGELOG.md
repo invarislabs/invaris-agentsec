@@ -5,6 +5,8 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+- New: `agentsec test --no-preflight` skips the preliminary agent request while retaining endpoint configuration checks.
+
 - New: `agentsec test` checks the agent before running any scenario. A missing `agent.endpoint`, or the placeholder
   `agentsec init` now writes (`https://your-agent.example/...`), stops the run with a message that says what to set
   and links the agent contract. One preflight request (no tools, session `agentsec-preflight`, retried once) catches
