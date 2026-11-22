@@ -2,6 +2,8 @@
 
 **Adversarial security and reliability testing for autonomous AI agents.**
 
+**▶ [Try the AgentSec Playground](https://invarislabs.github.io/invaris-agentsec/): attack an AI agent in your browser. No install, no API key.**
+
 <p align="center">
   <img src="docs/assets/agentsec-demo.gif" alt="AgentSec run against the bundled vulnerable demo agent (43 findings), then against its hardened --safe variant (35 of 35 passed)" width="800">
 </p>
@@ -10,7 +12,9 @@ Real output, not a mock-up: against the bundled vulnerable demo agent, 0 of 35 s
 
 ### Try it in your browser
 
-No install, no agent, no API key: attack a small agent in a notebook and see it break, then fix it.
+**[AgentSec Playground](https://invarislabs.github.io/invaris-agentsec/):** runs AgentSec right in the page. Attack a sample agent, compare the naive and hardened versions, or bring your own model key.
+
+Prefer a notebook? No install, no agent, no API key: attack a small agent in a notebook and see it break, then fix it.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/invarislabs/invaris-agentsec/blob/main/examples/notebooks/agentsec_quickstart.ipynb)
 
