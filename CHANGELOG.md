@@ -5,6 +5,8 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
 
 ## Unreleased
 
+## 0.10.0
+
 - New: `agentsec test` checks the agent before running any scenario. A missing `agent.endpoint`, or the placeholder
   `agentsec init` now writes (`https://your-agent.example/...`), stops the run with a message that says what to set
   and links the agent contract. One preflight request (no tools, session `agentsec-preflight`, retried once) catches
@@ -17,6 +19,13 @@ version is below 1.0, minor releases may change behaviour, and the changes are l
   Anthropic or any OpenAI-compatible URL, with clear errors for a bad key, CORS blocks and rate limits. The key
   stays in memory and goes only to the provider. Results: per-finding cards, copy as Markdown, JSON download and a
   share line. No engine changes.
+- New: `examples/decision_memory/`, a self-contained demo for agents with long-term memory: a hidden instruction
+  arrives in a result attached *after* a decision, and a later, unrelated task must not act on it. Three
+  conversations, same session; stub app, dummy data, no API keys or network.
+- Fix (notebook): the real-LLM notebook stops and lists the models available on the key instead of silently
+  falling back to a different model.
+- Docs: the README links the browser playground at the top; an outdated "port 8000" troubleshooting note was removed.
+- CI: first-time contributors get an automatic thank-you on their first issue or pull request.
 
 ## 0.9.0
 
