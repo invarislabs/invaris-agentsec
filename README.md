@@ -260,7 +260,7 @@ need (`tool_effects`, `agent_roles`); see the [Attack catalog](docs/attack-catal
 and declares your allowed tools (plus forbidden actions as decoys). AgentSec plays the tools:
 every call is simulated, and results carry the adversarial content. Agents that run tools
 server-side can report them in an `x_agentsec.events` field, and agents with memory can key it on the
-`user` field (also sent as `X-AgentSec-Session`). List the synthetic credentials your agent can see
+`user` field (also sent as `X-AgentSec-Session`). Calls reported in `x_agentsec.events` are recorded, not intercepted: they really execute on your side, so run them against sandboxed or mocked backends. List the synthetic credentials your agent can see
 under `secrets:` so leaks are detected.
 
 **In CI.** Inside GitHub Actions, `agentsec test` adds workflow annotations for each finding and

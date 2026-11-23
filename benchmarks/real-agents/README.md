@@ -21,6 +21,10 @@ AgentSec's MCP attack host (`agentsec test --mcp-listen`, `agentsec.mcp.MCPAttac
 server an agent connects to. Every tool the agent sees is simulated by AgentSec; the agent, its model and its tool
 loop are real.
 
+That "nothing real is touched" property holds when AgentSec plays the tools, as here in MCP mode (or with HTTP
+tool declarations). It does not hold for agents that run tools themselves and only report them in
+`x_agentsec.events`: those calls are recorded, not intercepted, and really execute on the agent's side.
+
 ## Claude Code CLI -- tested
 
 `claude_code_mcp.py` drives `claude -p` once per conversation with:
