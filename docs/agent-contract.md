@@ -47,6 +47,8 @@ Accepted variations:
   that matches neither shape above), it retries once after two seconds, then stops the run with the error and exit code 2
   instead of erroring every scenario. An agent that runs its own tools may still use them to answer it, so the same rule
   as for every scenario applies: only test agents whose tools are sandboxed or mocked.
+  Use `agentsec test --no-preflight` to skip this request when your agent cannot answer without tools
+  or you do not want the extra request. Missing and placeholder endpoints are still rejected.
 
 ## Sessions and memory
 

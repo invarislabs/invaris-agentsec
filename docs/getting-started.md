@@ -109,13 +109,15 @@ Never point it at production. See the Security Model in the main README.
 | `--seed N` | `0` | Seed for canaries and markers. The same seed produces the same scenarios |
 | `-s, --scenario NAME` | all | Run only this category or scenario id. Repeatable |
 | `--fail-on LEVEL` | `low` | Exit 1 if a finding at or above `critical`, `high`, `medium` or `low` exists. `none` never fails on findings |
+| `--no-preflight` | off | Skip the preliminary request for agents that cannot answer without tools; placeholder endpoints are still rejected |
 | `--judge` | off | Also run the model-assisted evaluators configured under `judge:` in the policy. See [Judge](judge.md) |
 | `--mcp-listen HOST:PORT` | off | Run AgentSec as the MCP server your agent connects to. See [MCP testing](mcp-testing.md#testing-an-agent-that-uses-mcp---mcp-listen) |
 | `-v, --verbose` | off | Print progress and per-finding detail |
 
 Before running any scenario, `agentsec test` checks the agent: it stops with exit code 2 and a clear error when
 `agent.endpoint` is still the placeholder `agentsec init` writes, or when one preflight request to the endpoint fails
-(see [Agent contract](agent-contract.md)).
+(see [Agent contract](agent-contract.md)). Pass `--no-preflight` to skip only the preliminary
+request, for example when the agent requires tools on every request. Endpoint configuration checks still apply.
 
 Examples:
 
@@ -152,6 +154,7 @@ Report written to .agentsec/replay/report.json
 | `-o, --out DIR` | `.agentsec/replay` | Where the replay report is written |
 | `--finding ID` | all | Replay only this finding id. Repeatable |
 | `-s, --scenario ID` | all | Replay only findings of this scenario. Repeatable |
+| `--no-preflight` | off | Skip the preliminary request for agents that cannot answer without tools; placeholder endpoints are still rejected |
 | `--judge` | off | Re-check model-assisted findings too. Without it they are skipped, with a note |
 
 `NEW` lines are findings that were not in the original report. Exit code 0 means nothing reproduced. Exit code 1 means at least one finding

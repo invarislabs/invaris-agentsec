@@ -89,13 +89,16 @@ def _is_placeholder(endpoint: str) -> bool:
     return host == "example" or host.endswith(".example")
 
 
-def _agent_endpoint_problem(policy: Policy, adapter: AgentAdapter, policy_path: str) -> Optional[str]:
+def _agent_endpoint_problem(policy: Policy, adapter: AgentAdapter, policy_path: str,
+                            *, no_preflight: bool = False) -> Optional[str]:
     """Why `agentsec test` cannot start against this agent, or None when it can: the endpoint is
     still the `agentsec init` placeholder, or one preflight request to it fails."""
     endpoint = policy.agent.endpoint
     if _is_placeholder(endpoint):
         return ("agent.endpoint is still the placeholder %s. Set agent.endpoint in %s to your agent's URL."
                 % (endpoint, policy_path))
+    if no_preflight:
+        return None
     for attempt in range(1, PREFLIGHT_ATTEMPTS + 1):
         try:
             adapter.chat([{"role": "user", "content": PREFLIGHT_MESSAGE}], tools=[], session=PREFLIGHT_SESSION)
@@ -149,7 +152,7 @@ def _cmd_test(args: argparse.Namespace) -> int:
     def preflight() -> None:
         # Runs inside run_suite: after the scenario selection is validated, so a typo in `-s` is
         # reported first, and after the MCP host starts, since an agent wired to it may need it to answer.
-        problem = _agent_endpoint_problem(policy, adapter, args.policy)
+        problem = _agent_endpoint_problem(policy, adapter, args.policy, no_preflight=args.no_preflight)
         if problem:
             raise AgentUnavailable(problem)
 
@@ -370,6 +373,8 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--scenario", "-s", action="append", help="only run this category or scenario id (repeatable)")
     t.add_argument("--fail-on", choices=list(SEVERITIES) + ["none"], default="low",
                    help="exit 1 if a finding at or above this severity exists (default low = any)")
+    t.add_argument("--no-preflight", action="store_true",
+                   help="skip the preliminary agent request; placeholder endpoints are still rejected")
     t.add_argument("--judge", action="store_true",
                    help="also run the model-assisted evaluators configured under `judge:` in the policy")
     t.add_argument("--attack-pack", "-A", action="append", metavar="PATH_OR_MODULE",
